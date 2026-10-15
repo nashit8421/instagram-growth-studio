@@ -83,11 +83,33 @@ if __name__ == "__main__":
 class OpenConfirmTests(unittest.TestCase):
     def setUp(self):
         self.calls = []
-        self.saved = (server.open_browser, server.subprocess.run, server.sys.platform)
+        self.saved = (server.open_browser, server.subprocess.run, server.sys.platform,
+                      server.warm_up_browser, server.default_browser_id, server.app_running, server.time.sleep)
         server.open_browser = lambda url: self.calls.append(("default", url))
+        server.warm_up_browser = lambda: False
 
     def tearDown(self):
-        server.open_browser, server.subprocess.run, server.sys.platform = self.saved
+        (server.open_browser, server.subprocess.run, server.sys.platform, server.warm_up_browser,
+         server.default_browser_id, server.app_running, server.time.sleep) = self.saved
+
+    def test_warm_up_starts_a_closed_browser_first(self):
+        server.warm_up_browser = self.saved[3]
+        server.sys.platform = "darwin"
+        server.default_browser_id = lambda: "ai.kweo.browser"
+        state = {"running": False}
+        server.app_running = lambda bid: state["running"]
+        server.time.sleep = lambda s: None
+        ran = []
+        def run(args, **kw):
+            ran.append(args)
+            state["running"] = True
+            return type("R", (), {"returncode": 0})()
+        server.subprocess.run = run
+        self.assertTrue(server.warm_up_browser())
+        self.assertEqual(ran[0], ["open", "-g", "-b", "ai.kweo.browser"])
+        ran.clear()
+        self.assertFalse(server.warm_up_browser())   # already running: nothing to do
+        self.assertEqual(ran, [])
 
     def test_stops_once_the_browser_arrives(self):
         srv = type("S", (), {"requests_seen": 0})()

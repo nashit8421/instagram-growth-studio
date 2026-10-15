@@ -1029,12 +1029,60 @@ def open_browser(url):
     webbrowser.open(url)
 
 
+def default_browser_id():
+    """macOS: bundle id of the default http handler, e.g. ai.kweo.browser."""
+    import plistlib
+    p = os.path.expanduser("~/Library/Preferences/com.apple.LaunchServices/"
+                           "com.apple.launchservices.secure.plist")
+    try:
+        with open(p, "rb") as f:
+            for h in plistlib.load(f).get("LSHandlers", []):
+                if h.get("LSHandlerURLScheme") in ("http", "https"):
+                    return h.get("LSHandlerRoleAll")
+    except (OSError, ValueError, plistlib.InvalidFileException):
+        pass
+    return None
+
+
+def app_running(bundle_id):
+    try:
+        r = subprocess.run(["osascript", "-e", f'application id "{bundle_id}" is running'],
+                           capture_output=True, text=True, timeout=10)
+        return r.stdout.strip() == "true"
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def warm_up_browser(timeout=25, settle=4):
+    """macOS: if the default browser is closed, start it first and give it time
+    to finish launching. Several browsers (kweo among them) drop a link handed
+    to them while they are still starting, leaving a tab that never loads.
+    Returns True when a cold start happened."""
+    if sys.platform != "darwin":
+        return False
+    bid = default_browser_id()
+    if not bid or not re.fullmatch(r"[A-Za-z0-9.\-]+", bid) or app_running(bid) is not False:
+        return False
+    try:
+        subprocess.run(["open", "-g", "-b", bid], timeout=15,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    deadline = time.time() + timeout
+    while time.time() < deadline and not app_running(bid):
+        time.sleep(0.5)
+    time.sleep(settle)
+    return True
+
+
 def open_and_confirm(srv, url, waits=(6, 6)):
     """Open the browser, then make sure it really arrived. Some browsers (kweo
     in testing) occasionally create the tab but never send the request. If no
     request reaches the server, open again; if that fails too, use another
     installed browser on macOS and say so in the console."""
     start = getattr(srv, "requests_seen", 0)
+    if warm_up_browser():
+        waits = tuple(w + 4 for w in waits)
     open_browser(url)
     for i, wait in enumerate(waits):
         deadline = time.time() + wait
@@ -1450,6 +1498,15 @@ def api_status(h, body):
         "scan_available": bool(script_path("ig-scan/scan.py")),
         "install": install_status(),
     }
+
+
+@route("POST", "/api/reopen")
+def api_reopen(h, body):
+    """The launcher calls this when IG Studio is already running: open the
+    browser again, with the same warm-up and arrival check as a fresh start."""
+    url = launch_url(h.server.port, h.server.token)
+    start_thread(lambda: open_and_confirm(h.server, url))
+    return {"ok": True}
 
 
 @route("POST", "/api/install-skills")
@@ -2375,6 +2432,7 @@ def main(argv=None):
         url = launch_url(existing['port'], existing['token'])
         print(f"IG Studio is already running at http://127.0.0.1:{existing['port']}/")
         if not args.no_browser:
+            warm_up_browser()
             open_browser(url)
         return 0
 

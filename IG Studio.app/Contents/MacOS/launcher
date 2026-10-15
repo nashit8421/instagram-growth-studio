@@ -28,7 +28,7 @@ try:
     d = json.load(open(sys.argv[1]))
     os.kill(int(d["pid"]), 0)
     socket.create_connection(("127.0.0.1", int(d["port"])), timeout=1).close()
-    print("http://127.0.0.1:%d/open?t=%s" % (int(d["port"]), d["token"]))
+    print("%d %s" % (int(d["port"]), d["token"]))
 except FileNotFoundError:
     pass
 except Exception as e:
@@ -36,7 +36,11 @@ except Exception as e:
 PYEOF
 )"
 if [ -n "$RUNNING_URL" ]; then
-  open "$RUNNING_URL"
+  # Ask the running server to open the browser: it starts a closed browser
+  # first and checks the page really loaded. Plain `open` is the fallback.
+  set -- $RUNNING_URL
+  curl -s -m 5 -X POST -H "X-IG-Token: $2" -H "Content-Type: application/json" -d '{}' \
+       "http://127.0.0.1:$1/api/reopen" >/dev/null 2>&1 || open "http://127.0.0.1:$1/open?t=$2"
   exit 0
 fi
 
