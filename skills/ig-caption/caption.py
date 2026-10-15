@@ -23,10 +23,17 @@ Usage
 
 import argparse
 import json
+import os
 import re
 import sys
 import textwrap
+import unicodedata
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+# Fallbacks. The live numbers come from platform.json at the repo root, so a
+# platform change is one edit in one place. These are used only if that file
+# is missing or unreadable, for example when this skill was copied on its own.
 LIMIT = 2200             # Instagram's hard caption limit.
 TRUNCATE = 125           # Roughly where the feed cuts to "... more".
 HASHTAG_LIMIT = 5        # Instagram's cap per post or reel since 18 Dec 2025,
@@ -35,7 +42,65 @@ HASHTAG_LIMIT = 5        # Instagram's cap per post or reel since 18 Dec 2025,
                          # rather than many generic ones, can improve both your
                          # content's performance and people's experience".
 
-HASHTAG_RE = re.compile(r"(?:^|\s)(#[A-Za-z0-9_]+)")
+
+def find_platform():
+    """platform.json: $IG_PLATFORM_JSON, else next to this skill or above it."""
+    env = os.environ.get("IG_PLATFORM_JSON")
+    candidates = [env] if env else []
+    candidates += [os.path.join(HERE, "platform.json"),
+                   os.path.join(HERE, "..", "platform.json"),
+                   os.path.join(HERE, "..", "..", "platform.json")]
+    for path in candidates:
+        if path and os.path.isfile(path):
+            return path
+    return None
+
+
+def load_platform(path=None):
+    """Return (limit, truncate, hashtag cap), falling back fact by fact."""
+    limit, truncate, cap = LIMIT, TRUNCATE, HASHTAG_LIMIT
+    path = path or find_platform()
+    if not path:
+        return limit, truncate, cap
+    try:
+        with open(path, encoding="utf-8") as fh:
+            facts = json.load(fh).get("facts", {})
+    except (OSError, ValueError, AttributeError):
+        return limit, truncate, cap
+
+    def num(key, fallback):
+        value = (facts.get(key) or {}).get("value") if isinstance(facts, dict) else None
+        return value if isinstance(value, int) and value > 0 else fallback
+
+    return num("caption_limit", limit), num("feed_truncation", truncate), num("hashtag_cap", cap)
+
+
+LIMIT, TRUNCATE, HASHTAG_LIMIT = load_platform()
+
+
+def _mark_class():
+    """Every combining mark in the BMP, as the inside of a regex class.
+
+    Devanagari vowel signs, Arabic harakat and decomposed accents are
+    category M, which \\w does not match. Without them a Hindi word breaks
+    into pieces at every vowel sign. ZWNJ and ZWJ sit inside words in Urdu,
+    Persian and the Indic scripts, so they count as part of a word too.
+    """
+    ranges, start, prev = [], None, None
+    for cp in range(0x0300, 0x10000):
+        if unicodedata.category(chr(cp))[0] == "M":
+            start = cp if start is None else start
+            prev = cp
+        elif start is not None:
+            ranges.append((start, prev))
+            start = None
+    return "".join(re.escape(chr(a)) + ("-" + re.escape(chr(b)) if b > a else "")
+                   for a, b in ranges) + "\u200c\u200d"
+
+
+MARKS = _mark_class()
+# Hashtags can be written in any script: #भारत counts the same as #india.
+HASHTAG_RE = re.compile(r"(?:^|\s)(#(?:\w|[" + MARKS + r"])+)")
 MENTION_RE = re.compile(r"(?:^|\s)(@[A-Za-z0-9_.]+)")
 LINK_RE = re.compile(r"https?://\S+|\bwww\.\S+|\b[a-z0-9-]+\.(?:com|co|io|net|org|ai|app)/\S*",
                      re.IGNORECASE)
@@ -119,10 +184,10 @@ def analyse(text, cut=TRUNCATE, keywords=None):
 
     if len(tags) > HASHTAG_LIMIT:
         add("HASHTAGS", "FAIL", f"{len(tags)} tags, over Instagram's cap of {HASHTAG_LIMIT}. "
-                                "Tags past the fifth do not count and the block reads as old")
+                                f"Tags past number {HASHTAG_LIMIT} do not count and the block reads as old")
     elif len(tags) == HASHTAG_LIMIT and filler:
         add("HASHTAGS", "WARN", f"{len(tags)} tags, at the cap, and "
-                                f"{len(filler)} of them generic. Spend the five on topics")
+                                f"{len(filler)} of them generic. Spend all {HASHTAG_LIMIT} on topics")
     elif filler:
         add("HASHTAGS", "WARN", f"{len(tags)} tags, {len(filler)} of them generic "
                                 f"({', '.join(filler[:3])}). Those describe nothing")
