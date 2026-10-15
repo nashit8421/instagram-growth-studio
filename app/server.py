@@ -1230,7 +1230,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
         self.send_response(303)
-        self.send_header("Set-Cookie", "igt=%s; Path=/; HttpOnly; SameSite=Strict" % self.server.token)
+        self.send_header("Set-Cookie", "igt=%s; Path=/; Max-Age=2592000; HttpOnly; SameSite=Strict" % self.server.token)
         self.send_header("Location", "/")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Referrer-Policy", "no-referrer")
