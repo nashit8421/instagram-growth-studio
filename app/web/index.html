@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>IG Studio</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<a class="skip" href="#view">Skip to content</a>
+<div class="app" id="app">
+  <aside class="side" aria-label="Main">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <span class="brand-name">IG Studio</span>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <span class="dot" id="side-dot" aria-hidden="true"></span>
+      <span id="side-status">Local only. Nothing is posted.</span>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <div class="top-left">
+        <span class="logo sm only-mobile" aria-hidden="true"></span>
+        <h1 class="page-title" id="page-title">Today</h1>
+      </div>
+      <div class="top-right">
+        <label class="acct" for="acct-select">
+          <span class="sr">Active account</span>
+          <span class="acct-at" aria-hidden="true">@</span>
+          <select id="acct-select"></select>
+        </label>
+      </div>
+    </header>
+    <nav class="tabs only-mobile" id="tabs" aria-label="Screens"></nav>
+    <main id="view" class="view" tabindex="-1"></main>
+  </div>
+</div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<script src="js/md.js?v=1"></script>
+<script src="js/core.js?v=1"></script>
+<script src="js/today.js?v=1"></script>
+<script src="js/account.js?v=1"></script>
+<script src="js/assistant.js?v=1"></script>
+<script src="js/create.js?v=1"></script>
+<script src="js/posts.js?v=1"></script>
+<script src="js/growth.js?v=1"></script>
+<script src="js/trends.js?v=1"></script>
+<script src="js/calendar.js?v=1"></script>
+<script src="js/settings.js?v=1"></script>
+<script src="js/main.js?v=1"></script>
+</body>
+</html>

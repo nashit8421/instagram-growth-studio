@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=IG Studio
+Comment=Local studio for your Instagram skill pack. Nothing is posted.
+Exec=sh -c 'cd "$(dirname "$1")" && exec ./ig-studio.sh' sh %k
+Icon=applications-graphics
+Terminal=false
+Categories=Graphics;Utility;
