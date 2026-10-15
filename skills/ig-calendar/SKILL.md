@@ -31,8 +31,8 @@ python3 schedule.py ics --out ~/Desktop/ig-week.ics   # fallback file
 Options on every command:
 
 - `PLAN.md` path. Default is `plan.md` in the data dir: `$IG_DATA_DIR`, else
-  the active account under `~/.claude/instagram/accounts/`, else
-  `~/.claude/instagram`.
+  the active account under `~/IGStudio/accounts/`, else
+  `~/IGStudio`.
 - `--week-of YYYY-MM-DD` the Monday. Without it, the week comes from the
   plan's `WEEK OF SEP 15` line (the year nearest today), else next Monday.
 - `--tz Europe/London` the time zone the times are in. Default is the

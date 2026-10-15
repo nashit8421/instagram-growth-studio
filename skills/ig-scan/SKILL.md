@@ -34,6 +34,12 @@ python3 scan.py prefill                   # suggested profile values + 3 typical
 python3 scan.py to-ledger --dry-run       # then without --dry-run
 ```
 
+If the reader could not write the file, its reply ends with the JSON in a
+json code block: save that to `$DATA/scan/captured-kweo.json` yourself (make
+the `scan/` folder first) and carry on. A reply of `"blocked": "login"`
+means kweo is not logged in to Instagram: ask the user to log in there, then
+run the reader again.
+
 ## Rules. Not negotiable.
 
 - **Only accounts the user owns, or manages for a client.** Not competitors,
@@ -75,11 +81,13 @@ The user is already logged in to Instagram in kweo, so this needs no keys.
    to $DATA/scan/captured-kweo.json."* Use the real path.
 4. **More history** (if the account posts often and 24 posts cover under
    about two months): from the profile file's grid URLs, or the user's list,
-   launch up to 2 more readers in parallel with job `posts`, each on a
-   different slice of URLs, writing `captured-kweo-2.json`,
-   `captured-kweo-3.json`. Never more than 3 readers at once, about 60 posts
-   in total. Each reader gets its own kweo tab, so the user's tabs are left
-   alone.
+   run up to 2 more readers with job `posts`, **one after the other**, each on
+   a different slice of URLs, writing `captured-kweo-2.json`,
+   `captured-kweo-3.json`. About 60 posts in total. Readers in one session
+   share one kweo connection, so never run them at the same time. Each one
+   opens its own new kweo tab first, so the user's tabs, including IG Studio,
+   are left alone. Tell the user once: "kweo opens Instagram in a new tab;
+   switch back to this tab whenever you like."
 5. **Own professional account:** offer one more reader with job `insights`
    for the latest 12 post URLs (reach, saves, shares, skip rate, watch time).
    Ask first. It writes `captured-kweo-insights.json`.

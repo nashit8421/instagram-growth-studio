@@ -38,7 +38,7 @@ python3 trends.py prune        # drop dead trends
 
 Data lives in `$DATA`: `$IG_DATA_DIR` if set, else the active account folder
 (`$IG_HOME/accounts/<handle>/`, when `$IG_HOME/active-account` names one and
-the folder exists), else `$IG_HOME` (default `~/.claude/instagram`).
+the folder exists), else `$IG_HOME` (default `~/IGStudio`).
 
 ## Browsing
 

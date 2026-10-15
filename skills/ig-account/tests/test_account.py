@@ -2,7 +2,7 @@
 
 Run from the skill folder:  python3 -m unittest discover -s tests
 Every test points IG_HOME at a fresh temp dir and unsets IG_DATA_DIR. The real
-~/.claude/instagram is never touched.
+~/IGStudio is never touched.
 """
 
 import contextlib
@@ -66,7 +66,7 @@ class Resolver(Base):
 
     def test_ig_home_default_when_unset(self):
         os.environ.pop("IG_HOME")
-        self.assertEqual(account.ig_home(), os.path.expanduser("~/.claude/instagram"))
+        self.assertEqual(account.ig_home(), os.path.expanduser("~/IGStudio"))
 
     def test_active_account_with_folder(self):
         os.makedirs(os.path.join(self.home, "accounts", "acme.co"))

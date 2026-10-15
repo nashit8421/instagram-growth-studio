@@ -8,7 +8,7 @@ nobody finishes does nothing. This ranks your options honestly and tells you
 how to use the winner. It never promises a result.
 
 The list is a plain CSV at $DATA/sounds.csv. $DATA is $IG_DATA_DIR if set,
-else the active account folder under $IG_HOME (default ~/.claude/instagram),
+else the active account folder under $IG_HOME (default ~/IGStudio),
 else $IG_HOME itself. Empty cell means unknown.
 
 Usage
@@ -113,7 +113,7 @@ DEFAULT_WPM = 165
 # ---------------------------------------------------------------- storage
 
 def ig_home():
-    return os.path.expanduser(os.environ.get("IG_HOME") or "~/.claude/instagram")
+    return os.path.expanduser(os.environ.get("IG_HOME") or "~/IGStudio")
 
 
 def data_dir():

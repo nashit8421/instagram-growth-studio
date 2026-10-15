@@ -41,8 +41,8 @@ Add `--json` to any of them when another skill needs the numbers.
 ## Where the files are
 
 Same data dir as the rest of the pack: `$IG_DATA_DIR`, else the active
-account folder (`~/.claude/instagram/accounts/<handle>/` when
-`~/.claude/instagram/active-account` names one), else `~/.claude/instagram`.
+account folder (`~/IGStudio/accounts/<handle>/` when
+`~/IGStudio/active-account` names one), else `~/IGStudio`.
 
 - `snapshots.csv`: one row per check. `post_id, taken_at, hours_since_post`,
   the metrics, `source` and `notes`. Empty means unknown, never zero.

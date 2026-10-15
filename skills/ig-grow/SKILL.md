@@ -66,7 +66,7 @@ python3 grow.py milestones [--json]
 The data dir is `$IG_DATA_DIR` if set. Otherwise, if
 `$IG_HOME/active-account` names a handle and `$IG_HOME/accounts/<handle>/`
 exists, that folder (set by `/ig-account`). Otherwise `$IG_HOME`, default
-`~/.claude/instagram`.
+`~/IGStudio`.
 
 | file | who writes it | ig-grow |
 | --- | --- | --- |
@@ -157,4 +157,4 @@ and anything bought. Check the hook first.
 - `grow.py`: the tool.
 - `references.md`: sources, with dates and URLs.
 - `tests/test_grow.py`: `python3 -m unittest discover -s tests`. Temp dirs
-  only. Never touches `~/.claude/instagram`.
+  only. Never touches `~/IGStudio`.

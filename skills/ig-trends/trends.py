@@ -14,7 +14,7 @@ $DATA/trends.md so /ig-plan and /ig-reel can read it.
 
 $DATA is: $IG_DATA_DIR if set. Else, if $IG_HOME/active-account names a
 handle and $IG_HOME/accounts/<handle>/ exists, that folder. Else $IG_HOME.
-$IG_HOME defaults to ~/.claude/instagram.
+$IG_HOME defaults to ~/IGStudio.
 
 Usage
   python3 trends.py add --source google --region IN --kind topic \\
@@ -92,7 +92,7 @@ STOP = {"the", "and", "for", "with", "from", "that", "this", "your", "you",
 # ---------------------------------------------------------------- storage
 
 def ig_home():
-    return os.path.expanduser(os.environ.get("IG_HOME") or "~/.claude/instagram")
+    return os.path.expanduser(os.environ.get("IG_HOME") or "~/IGStudio")
 
 
 def data_dir():

@@ -112,7 +112,7 @@ Built in, so you do not have to ask for it:
 The script looks for a brand in this order: `--brand file`, then
 `brand.json` in the active account's data folder (`python3
 ~/.claude/skills/ig-account/account.py path`, see /ig-account; defaults to
-`~/.claude/instagram`), then a plain built-in look. Copy `brand.example.json`
+`~/IGStudio`), then a plain built-in look. Copy `brand.example.json`
 there to start one. Each account keeps its own brand.
 
 ```json

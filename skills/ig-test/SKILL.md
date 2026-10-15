@@ -38,7 +38,7 @@ python3 abtest.py list                 # every test and where it stands
 
 Records go in the shared ledger, `posts.csv` in the active account's data
 folder (`python3 ~/.claude/skills/ig-account/account.py path`, see
-/ig-account; defaults to `~/.claude/instagram`), through
+/ig-account; defaults to `~/IGStudio`), through
 `../ig-ledger/ledger.py`. Each variant is one row,
 marked `trial=yes`, with a `test_id` and a `variant`.
 

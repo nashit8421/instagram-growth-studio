@@ -95,7 +95,7 @@ BOTTLENECK_TEXT = {
 # ------------------------------------------------------------- paths
 
 def ig_home():
-    return os.path.expanduser(os.environ.get("IG_HOME") or "~/.claude/instagram")
+    return os.path.expanduser(os.environ.get("IG_HOME") or "~/IGStudio")
 
 
 def data_dir():

@@ -23,7 +23,7 @@ not. No promises of virality. The aim is repeatable 3x outliers.
 - Never invent numbers. An unknown metric stays empty.
 - Data lives in the ig data dir: `$IG_DATA_DIR`, else the active account
   folder `$IG_HOME/accounts/<handle>/` named in `$IG_HOME/active-account`,
-  else `$IG_HOME` (default `~/.claude/instagram`). Only write through the
+  else `$IG_HOME` (default `~/IGStudio`). Only write through the
   skills' scripts, never by hand-editing CSVs.
 
 ## The weekly loop

@@ -4,7 +4,7 @@ Tests for grow.py. Run from the ig-grow folder:
     python3 -m unittest discover -s tests
 
 Every test points IG_DATA_DIR (or IG_HOME) at its own temp dir. Nothing here
-reads or writes ~/.claude/instagram or ~/.claude/skills.
+reads or writes ~/IGStudio or ~/.claude/skills.
 """
 
 import contextlib

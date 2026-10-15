@@ -8,7 +8,7 @@ want to learn from past that window has to live here.
 
 The ledger is a plain CSV, posts.csv, in the active account's data folder
 (see /ig-account: $IG_DATA_DIR, else the active account, else
-~/.claude/instagram). Open it in a spreadsheet if you like. Empty
+~/IGStudio). Open it in a spreadsheet if you like. Empty
 cell means unknown, never zero.
 
 Usage
@@ -52,11 +52,11 @@ ID_RE = re.compile(r"^P(\d+)$")
 def data_dir():
     """The active account's data folder. Same rule as ig-account/account.py:
     $IG_DATA_DIR, else $IG_HOME/accounts/<active-account>/ if it exists,
-    else $IG_HOME (default ~/.claude/instagram)."""
+    else $IG_HOME (default ~/IGStudio)."""
     env = os.environ.get("IG_DATA_DIR")
     if env:
         return os.path.expanduser(env)
-    home = os.path.expanduser(os.environ.get("IG_HOME") or "~/.claude/instagram")
+    home = os.path.expanduser(os.environ.get("IG_HOME") or "~/IGStudio")
     try:
         with open(os.path.join(home, "active-account"), encoding="utf-8") as f:
             h = f.read().strip().lstrip("@").strip().lower()

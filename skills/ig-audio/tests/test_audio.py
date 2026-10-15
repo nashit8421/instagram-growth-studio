@@ -4,7 +4,7 @@ Tests for audio.py. Run from the ig-audio folder:
     python3 -m unittest discover -s tests
 
 Every test points IG_DATA_DIR (or IG_HOME) at its own temp dir. Nothing
-touches ~/.claude/instagram or ~/.claude/skills. Script timing uses the
+touches ~/IGStudio or ~/.claude/skills. Script timing uses the
 built-in fallback unless a test opts into beats.py.
 """
 

@@ -2,7 +2,7 @@
 
 Copy this to `voice.md` in the active account's data folder (`python3
 ~/.claude/skills/ig-account/account.py path`, see /ig-account; defaults to
-`~/.claude/instagram`) and fill it in. Every skill in the pack reads it. Each
+`~/IGStudio`) and fill it in. Every skill in the pack reads it. Each
 account gets its own. Ten minutes here is the difference between scripts you shoot and
 scripts you rewrite.
 

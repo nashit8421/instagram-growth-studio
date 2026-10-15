@@ -41,7 +41,7 @@ tell the user a sound "will" boost reach. Say it "gives it a better shot".
 
 `$DATA/sounds.csv`. `$DATA` is `$IG_DATA_DIR` if set. Otherwise, if
 `$IG_HOME/active-account` holds a handle and `$IG_HOME/accounts/<handle>/`
-exists, that folder. Otherwise `$IG_HOME` (default `~/.claude/instagram`).
+exists, that folder. Otherwise `$IG_HOME` (default `~/IGStudio`).
 
 Columns: `name, artist, source, region, reels_count, first_seen, last_seen,
 trend, bpm, mood, business_ok, url, notes`, plus `prev_reels_count, prev_seen`
@@ -251,4 +251,4 @@ throwaway folder.
 python3 -m unittest discover -s tests
 ```
 
-Temp dirs only. Never touches `~/.claude/instagram` or `~/.claude/skills`.
+Temp dirs only. Never touches `~/IGStudio` or `~/.claude/skills`.

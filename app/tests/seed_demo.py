@@ -3,7 +3,7 @@
 
     python3 tests/seed_demo.py /tmp/some-empty-dir [--bare]
 
-Refuses to touch ~/.claude/instagram. --bare makes an account with nothing
+Refuses to touch ~/IGStudio. --bare makes an account with nothing
 in it (to see the first-run wizard).
 """
 import datetime as dt
@@ -27,9 +27,9 @@ def run(home, *args, stdin=None):
 
 def seed(home, bare=False):
     home = os.path.abspath(home)
-    real = os.path.realpath(os.path.expanduser("~/.claude/instagram"))
+    real = os.path.realpath(os.path.expanduser("~/IGStudio"))
     if os.path.realpath(home).startswith(real):
-        raise SystemExit("refusing to seed the real ~/.claude/instagram")
+        raise SystemExit("refusing to seed the real ~/IGStudio")
     os.makedirs(home, exist_ok=True)
     run(home, "ig-account/account.py", "new", "demo.creator")
     run(home, "ig-account/account.py", "use", "demo.creator")

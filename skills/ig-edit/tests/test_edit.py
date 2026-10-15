@@ -6,7 +6,7 @@ Run from the skill folder:
   python3 -m unittest discover -s tests
 
 Every test points IG_DATA_DIR and IG_HOME at temp dirs. Nothing touches
-~/.claude/instagram or ~/.claude/skills.
+~/IGStudio or ~/.claude/skills.
 """
 
 import contextlib
@@ -305,7 +305,7 @@ class WithFFmpeg(unittest.TestCase):
         self.assertTrue(any("brew install whisper-cpp" in n for n in r["notes"]))
         self.assertTrue(any("no captions" in w for w in r["warnings"]))
         # The hint points at the temp data dir, never the real one.
-        self.assertNotIn(str(Path.home() / ".claude" / "instagram"), " ".join(r["notes"]))
+        self.assertNotIn(str(Path.home() / "IGStudio"), " ".join(r["notes"]))
 
     def test_no_audio_input(self):
         mute = make_clip(self.out / "mute.mp4", [("gap", 8.0)], audio=False)

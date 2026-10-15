@@ -23,7 +23,7 @@ own folder (Claude Code gives you the base directory when the skill loads).
 Stdlib Python, no installs, no network. Nothing is uploaded. Everything stays
 in `posts.csv` in the active account's data folder: run
 `python3 ~/.claude/skills/ig-account/account.py path` (see /ig-account;
-defaults to `~/.claude/instagram`).
+defaults to `~/IGStudio`).
 
 ```bash
 python3 ledger.py add --format reel --hook-formula 3 --theme pricing \

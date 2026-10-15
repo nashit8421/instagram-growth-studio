@@ -30,7 +30,7 @@ python3 beats.py script.txt --target 30     # timed beat sheet before you shoot
 
 Files below live in the active account's data folder: run
 `python3 ~/.claude/skills/ig-account/account.py path` (see /ig-account;
-defaults to `~/.claude/instagram`).
+defaults to `~/IGStudio`).
 
 ## Before you write
 

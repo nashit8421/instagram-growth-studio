@@ -59,7 +59,7 @@ ALLOWED_TOOLS = [
     "Bash(python3:*)", "Bash(ffmpeg:*)", "Bash(ffprobe:*)",
     # harmless helpers Claude reaches for around the skill scripts
     "Bash(cd:*)", "Bash(ls:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)", "Bash(mkdir:*)", "Bash(date:*)",
-    "mcp__kweo__browser_navigate", "mcp__kweo__browser_read", "mcp__kweo__browser_tabs",
+    "mcp__kweo__browser_navigate", "mcp__kweo__browser_read", "mcp__kweo__browser_wait", "mcp__kweo__browser_tabs",
     "mcp__kweo__browser_new_tab", "mcp__kweo__browser_select_tab",
     "mcp__claude_ai_Google_Calendar__list_calendars", "mcp__claude_ai_Google_Calendar__list_events",
     "mcp__claude_ai_Google_Calendar__create_event", "mcp__claude_ai_Google_Calendar__update_event",
@@ -102,7 +102,7 @@ STATIC_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; ch
 # ---------------------------------------------------------------- locations
 
 def ig_home():
-    return os.path.expanduser(os.environ.get("IG_HOME") or "~/.claude/instagram")
+    return os.path.expanduser(os.environ.get("IG_HOME") or "~/IGStudio")
 
 
 def active_handle(home=None):
@@ -223,6 +223,23 @@ def install_skills():
                 agent_files.append(f)
     return {"installed": done, "agents": agent_files, "target": inst,
             "backup": backup if backed else None}
+
+
+def migrate_old_data_home():
+    """Earlier versions kept data in ~/.claude/instagram. Claude Code protects
+    ~/.claude, so runs started from IG Studio could not write there. Copy old
+    data to the new home once, if the new one doesn't exist yet."""
+    if os.environ.get("IG_HOME") or os.environ.get("IG_DATA_DIR"):
+        return None
+    old = os.path.expanduser("~/.claude/instagram")
+    new = ig_home()
+    if os.path.exists(new) or not os.path.isdir(old):
+        return None
+    try:
+        shutil.copytree(old, new, ignore=shutil.ignore_patterns(".DS_Store"))
+        return new
+    except OSError:
+        return None
 
 
 def studio_home():
@@ -890,6 +907,7 @@ def run_chat_job(job, server, prompt, session_id):
     cwd = data_dir()
     os.makedirs(cwd, exist_ok=True)
     cmd = [claude, "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
+           "--add-dir", skills_dir(),
            "--append-system-prompt", system_context(),
            "--allowedTools", ",".join(ALLOWED_TOOLS),
            "--disallowedTools", ",".join(DISALLOWED_TOOLS),
@@ -2471,6 +2489,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
     augment_path()
 
+    migrate_old_data_home()
     existing = running_instance()
     if existing:
         url = launch_url(existing['port'], existing['token'])

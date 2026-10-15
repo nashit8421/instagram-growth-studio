@@ -21,7 +21,7 @@ Then
 Nothing here posts, likes, follows or messages. The API source is read-only
 and the token is read from the environment only: never printed, never saved.
 Stdlib only. Data folder: IG_DATA_DIR, else $IG_HOME/accounts/<active>,
-else $IG_HOME (default ~/.claude/instagram).
+else $IG_HOME (default ~/IGStudio).
 """
 
 import argparse
@@ -55,7 +55,7 @@ INSIGHTS_REELS = ("ig_reels_avg_watch_time", "reels_skip_rate")
 PAGE_SIZE = 50
 MAX_POSTS = 200
 
-TYPES = ("reel", "carousel", "photo", "story")
+TYPES = ("reel", "carousel", "photo", "story", "unknown")
 METRICS = ("likes", "comments", "views", "reach", "saves", "shares", "follows", "avg_watch_s",
            "skip_rate", "nonfollower_pct")
 STALE_DAYS = 30
@@ -67,7 +67,7 @@ TIERS = ((10_000, "nano"), (100_000, "micro"), (500_000, "mid"), (1_000_000, "ma
 # ---------------------------------------------------------------- paths
 
 def ig_home():
-    return os.path.expanduser(os.environ.get("IG_HOME") or "~/.claude/instagram")
+    return os.path.expanduser(os.environ.get("IG_HOME") or "~/IGStudio")
 
 
 def data_dir():
@@ -171,7 +171,10 @@ def norm_type(t, url=""):
         return "photo"
     if "/reel/" in (url or ""):
         return "reel"
-    return "photo" if not t else "photo"
+    if "/p/" in (url or "") and not t:
+        return "photo"
+    # Don't guess: an unknown type counted as a photo makes the format mix lie.
+    return "unknown"
 
 
 def norm_date(v):
@@ -1023,7 +1026,7 @@ def format_mix(posts, today):
 
     def mix(items):
         c = collections.Counter(p["type"] for p in items)
-        return {t: _pct(c[t], len(items)) for t in ("reel", "carousel", "photo") if c[t]}, len(items)
+        return {t: _pct(c[t], len(items)) for t in ("reel", "carousel", "photo", "unknown") if c[t]}, len(items)
 
     recent = [p for p in feed if (d := _parse_day(p.get("date"))) and 0 <= (today - d).days < 30]
     earlier = [p for p in feed if (d := _parse_day(p.get("date"))) and 30 <= (today - d).days < 120]

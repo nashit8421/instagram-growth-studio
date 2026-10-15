@@ -78,7 +78,7 @@ def data_dir():
     """$IG_DATA_DIR, else the active account's folder, else $IG_HOME."""
     if os.environ.get("IG_DATA_DIR"):
         return Path(os.environ["IG_DATA_DIR"]).expanduser()
-    home = Path(os.environ.get("IG_HOME") or "~/.claude/instagram").expanduser()
+    home = Path(os.environ.get("IG_HOME") or "~/IGStudio").expanduser()
     marker = home / "active-account"
     try:
         handle = marker.read_text().strip().lstrip("@")

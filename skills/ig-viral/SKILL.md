@@ -29,7 +29,7 @@ python3 swipe.py captured.tsv --out "$DATA/swipe.md"
 ```
 
 `DATA` is the active account's data folder (see /ig-account; defaults to
-`~/.claude/instagram`).
+`~/IGStudio`).
 
 ## The one idea that makes this worth doing
 

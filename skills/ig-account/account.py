@@ -11,7 +11,7 @@ Data folder rule (every skill implements exactly this):
   2. else if $IG_HOME/active-account names a handle h AND
      $IG_HOME/accounts/<h>/ exists, that folder
   3. else $IG_HOME  (single-account, the original layout)
-$IG_HOME defaults to ~/.claude/instagram.
+$IG_HOME defaults to ~/IGStudio.
 
 Usage
   python3 account.py list [--json]
@@ -59,7 +59,7 @@ class AccountError(Exception):
 # ---------------------------------------------------------------- resolver
 
 def ig_home():
-    return os.path.expanduser(os.environ.get("IG_HOME") or "~/.claude/instagram")
+    return os.path.expanduser(os.environ.get("IG_HOME") or "~/IGStudio")
 
 
 def normalize(handle):

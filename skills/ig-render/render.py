@@ -27,7 +27,7 @@ Spec (JSON)
 Brand (JSON, optional): bg, fg, accent, font_display, font_body, handle.
 Looked up in --brand, then brand.json in the active account's data folder
 ($IG_DATA_DIR, else the active account from /ig-account, else
-~/.claude/instagram), then the built-in default.
+~/IGStudio), then the built-in default.
 
 Usage
   python3 render.py spec.json --out ./out
@@ -117,11 +117,11 @@ def contrast(a, b):
 def data_dir():
     """The active account's data folder. Same rule as ig-account/account.py:
     $IG_DATA_DIR, else $IG_HOME/accounts/<active-account>/ if it exists,
-    else $IG_HOME (default ~/.claude/instagram)."""
+    else $IG_HOME (default ~/IGStudio)."""
     env = os.environ.get("IG_DATA_DIR")
     if env:
         return Path(env).expanduser()
-    home = Path(os.environ.get("IG_HOME") or "~/.claude/instagram").expanduser()
+    home = Path(os.environ.get("IG_HOME") or "~/IGStudio").expanduser()
     try:
         h = (home / "active-account").read_text(encoding="utf-8").strip().lstrip("@").strip().lower()
     except OSError:

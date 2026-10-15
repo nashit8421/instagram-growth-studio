@@ -5,7 +5,7 @@ Tests for perf.py. Run from the ig-perf folder:
 
 Uses the real ig-ledger (sibling folder first, then the installed pack). Every
 test points IG_DATA_DIR at its own temp dir. Nothing touches
-~/.claude/instagram or ~/.claude/skills.
+~/IGStudio or ~/.claude/skills.
 """
 
 import contextlib

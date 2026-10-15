@@ -2,7 +2,7 @@
 
 Run from the skill folder:  python3 -m unittest discover -s tests
 Every test points IG_DATA_DIR / IG_HOME at a fresh temp dir. The real
-~/.claude/instagram is never touched.
+~/IGStudio is never touched.
 """
 
 import contextlib

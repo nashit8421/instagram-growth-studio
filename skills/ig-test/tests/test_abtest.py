@@ -6,7 +6,7 @@ Tests for abtest.py. Run from the ig-test folder:
 Uses the real ../ig-ledger/ledger.py when it exists, else the stand-in in
 tests/_fake_ledger. Force one with IG_TEST_LEDGER=fake or IG_TEST_LEDGER=real.
 Every test points IG_DATA_DIR at its own temp dir. Nothing touches
-~/.claude/instagram.
+~/IGStudio.
 """
 
 import contextlib

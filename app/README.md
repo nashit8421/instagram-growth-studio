@@ -48,7 +48,7 @@ Launching again while it runs just reopens the running one.
   talk to it.
 - **Nothing is ever posted, liked, followed, commented or sent.** Every tool ends in
   text or files that you post yourself.
-- Your data stays in the skills' data folder (`~/.claude/instagram`, one folder per
+- Your data stays in the skills' data folder (`~/IGStudio`, one folder per
   account). Settings → Open folder shows it.
 - Only Claude goes online, and only when you ask: research, and your Google Calendar
   after you say yes in the chat. An Instagram API token (Account → Advanced) is passed

@@ -84,4 +84,4 @@ change. Everything between those points runs without asking.
   works. Say that once, not every turn.
 - All files live in the active account's data folder. `state.py` and every
   script resolve it the same way: `IG_DATA_DIR`, else the active account, else
-  `~/.claude/instagram`.
+  `~/IGStudio`.

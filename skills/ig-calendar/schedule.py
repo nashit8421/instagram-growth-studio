@@ -74,7 +74,7 @@ def data_dir():
     env = os.environ.get("IG_DATA_DIR")
     if env:
         return os.path.expanduser(env)
-    home = os.path.expanduser(os.environ.get("IG_HOME") or "~/.claude/instagram")
+    home = os.path.expanduser(os.environ.get("IG_HOME") or "~/IGStudio")
     try:
         with open(os.path.join(home, "active-account"), encoding="utf-8") as f:
             handle = f.read().strip().lstrip("@")

@@ -20,7 +20,7 @@ mattered, which is the creator.
 
 Files below live in the active account's data folder: run
 `python3 ~/.claude/skills/ig-account/account.py path` (see /ig-account;
-defaults to `~/.claude/instagram`).
+defaults to `~/IGStudio`).
 
 ## Input
 

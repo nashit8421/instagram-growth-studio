@@ -14,7 +14,7 @@ and runs two read-only checks (ig-perf due, ig-kweo check).
   python3 state.py profile         # print profile.json
 
 Stdlib only. Data folder: IG_DATA_DIR, else the active account
-(ig-account), else ~/.claude/instagram.
+(ig-account), else ~/IGStudio.
 """
 
 import argparse
@@ -53,7 +53,7 @@ def _skill(*parts):
 
 
 def ig_home():
-    return os.path.expanduser(os.environ.get("IG_HOME") or "~/.claude/instagram")
+    return os.path.expanduser(os.environ.get("IG_HOME") or "~/IGStudio")
 
 
 def active_handle(home=None):

@@ -140,7 +140,7 @@ install line and carries on with the script or no captions:
 
 ```
 brew install whisper-cpp
-curl -L -o ~/.claude/instagram/models/ggml-base.en.bin \
+curl -L -o ~/IGStudio/models/ggml-base.en.bin \
   https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
 ```
 
@@ -149,7 +149,7 @@ Models are looked for in `$WHISPER_MODEL`, the data folder's `models/`,
 Do not run it for them unless they ask.
 
 The data folder is `$IG_DATA_DIR`, else the active account's folder under
-`~/.claude/instagram/accounts/`, else `~/.claude/instagram`.
+`~/IGStudio/accounts/`, else `~/IGStudio`.
 
 ## Honest limits
 
@@ -173,4 +173,4 @@ python3 -m unittest discover -s tests
 ```
 
 They make their own test clips with ffmpeg in temp folders and never touch
-`~/.claude/instagram`.
+`~/IGStudio`.

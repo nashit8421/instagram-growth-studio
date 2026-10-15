@@ -13,7 +13,7 @@ description: >-
 Every ig-* skill reads and writes files: `voice.md`, `brand.json`,
 `posts.csv`, `swipe.md`, `plan.md`, `log.md`, `engaged.md`, `trends.csv`,
 `sounds.csv`, `snapshots.csv`, `followers.csv` and the rest. They all live in
-one data folder. With one account that folder is `~/.claude/instagram`. With
+one data folder. With one account that folder is `~/IGStudio`. With
 several, each account gets its own folder and one of them is active. Every
 skill works on the active account and nothing else.
 
@@ -47,7 +47,7 @@ DATA=$(python3 ~/.claude/skills/ig-account/account.py path)
    exists: that folder.
 3. Otherwise `$IG_HOME` itself, the original single-account layout.
 
-`$IG_HOME` defaults to `~/.claude/instagram`. Someone with one account never
+`$IG_HOME` defaults to `~/IGStudio`. Someone with one account never
 has to know this skill exists.
 
 ## How to run a multi-account session
@@ -64,7 +64,7 @@ read another account's folder to "borrow" a hook or a benchmark unless the user
 asks for that comparison by name, and then say which account each number is
 from.
 
-**Moving to multiple accounts.** If `~/.claude/instagram` already has files and
+**Moving to multiple accounts.** If `~/IGStudio` already has files and
 the user adds a second account, ask whether the existing files belong to them
 (usually yes). Then:
 
@@ -75,7 +75,7 @@ python3 account.py new clienthandle
 python3 account.py use clienthandle
 ```
 
-`--from-current` copies everything to `~/.claude/instagram/backup-<time>/`
+`--from-current` copies everything to `~/IGStudio/backup-<time>/`
 before moving, so nothing can be lost.
 
 **A new account needs its own voice.** `new` copies the `voice.md` template in
