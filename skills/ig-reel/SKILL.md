@@ -22,9 +22,13 @@ python3 hookscore.py --hook "one line"      # score a single one
 python3 beats.py script.txt --target 30     # timed beat sheet before you shoot
 ```
 
+Files below live in the active account's data folder: run
+`python3 ~/.claude/skills/ig-account/account.py path` (see /ig-account;
+defaults to `~/.claude/instagram`).
+
 ## Before you write
 
-1. Read `~/.claude/instagram/voice.md` if it exists. That is the user's voice
+1. Read `voice.md` if it exists. That is the user's voice
    profile: how they talk on camera, what they never say, who they are talking
    to. If it does not exist, ask for **three of their own reels**, transcribe or
    read them, infer the voice, and write the file. A script in the wrong voice
@@ -36,7 +40,7 @@ python3 beats.py script.txt --target 30     # timed beat sheet before you shoot
 3. If the idea is thin, do not pad it. Ask one batched question: what happened,
    to whom, and what did it cost or return. A Reel needs one specific true
    thing. Get it before writing.
-4. If `~/.claude/instagram/swipe.md` exists, read it. `/ig-viral` writes that
+4. If `swipe.md` exists, read it. `/ig-viral` writes that
    file, and it is the user's own evidence about which formulas are working in
    their niche right now. It beats the defaults in this file.
 
@@ -109,7 +113,7 @@ It prints the new post id. Tell the user that id, so they can add the numbers
 later with `ledger.py update ID`. If it is one arm of a test, add
 `--trial --test-id T001 --variant A`.
 
-Also append to `~/.claude/instagram/log.md` with the date, the hook formula
+Also append to `log.md` with the date, the hook formula
 used and the first line, as before. Older tools still read that file. If
 `/ig-ledger` is not installed, the log.md line is enough on its own.
 

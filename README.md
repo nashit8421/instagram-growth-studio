@@ -47,7 +47,8 @@ of a chat and it runs as a mode. You lose the five Python tools, which is most
 of the point of `/ig-reel` and `/ig-human`, but the rest works.
 
 Then spend ten minutes on `templates/voice.md`. Copy it to
-`~/.claude/instagram/voice.md` and fill it in, or send Claude three of your own
+`~/.claude/instagram/voice.md` (or the active account's folder, see
+`/ig-account`) and fill it in, or send Claude three of your own
 reels and say "write my voice.md from these". Every skill reads that file. It
 matters more here than on other platforms, because you have to say the words
 out loud.
@@ -72,14 +73,15 @@ out loud.
 
 ## Extensions
 
-Three sibling skills plug into this pack. Install them next to the others in
+Four sibling skills plug into this pack. Install them next to the others in
 `~/.claude/skills/`.
 
 | skill | what it does |
 | --- | --- |
-| `/ig-ledger` | Logs every post and its numbers to `~/.claude/instagram/posts.csv`. `audit.py` does the `/ig-audit` maths. |
+| `/ig-ledger` | Logs every post and its numbers to `posts.csv` in the active account's data folder. `audit.py` does the `/ig-audit` maths. |
 | `/ig-test` | Runs a hook-against-hook test as two Trial Reels and reports which one won. |
 | `/ig-render` | Turns approved carousel and story copy into the PNGs you upload. |
+| `/ig-account` | Several accounts (yours, clients) each with its own voice, brand, ledger and swipe file. Every skill works on the active one. |
 
 ## The five tools that actually run
 
@@ -210,7 +212,8 @@ After `humanize.py`, with the flagged structures still unrewritten:
 ### The swipe file
 
 ```bash
-python3 swipe.py captured.tsv --out ~/.claude/instagram/swipe.md
+DATA=$(python3 ~/.claude/skills/ig-account/account.py path)
+python3 swipe.py captured.tsv --out "$DATA/swipe.md"
 ```
 
 Raw views are not evidence. A 2,000,000-follower account doing 400,000 views

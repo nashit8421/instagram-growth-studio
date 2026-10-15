@@ -12,9 +12,13 @@ description: >-
 The control room. Everything else in this pack executes; this decides what gets
 executed. Run it once a week, on the same day.
 
+Files below live in the active account's data folder: run
+`python3 ~/.claude/skills/ig-account/account.py path` (see /ig-account;
+defaults to `~/.claude/instagram`).
+
 ## Input
 
-If `~/.claude/instagram/voice.md`, `swipe.md` and `log.md` exist, read them.
+If `voice.md`, `swipe.md` and `log.md` exist, read them.
 The swipe file is the user's own evidence from `/ig-viral` about which formulas
 are landing in their niche right now, and it outranks anything in this file.
 The log stops the plan repeating a theme from the last fortnight.
@@ -79,7 +83,7 @@ Anchor times to the audience's timezone, not the user's, if those differ.
 - **2 buyers** - people who could actually buy. Comment for weeks before any
   DM, and never pitch in a comment.
 
-Hand the list to `/ig-comment`. If `~/.claude/instagram/engaged.md` exists,
+Hand the list to `/ig-comment`. If `engaged.md` exists,
 read it first, so the list is not the same ten accounts as last week.
 
 ## Output
@@ -103,6 +107,6 @@ ENGAGE  (5 reach / 3 peers / 2 buyers)
 Say "write Tuesday" and I will draft it.
 ```
 
-Write the plan to `~/.claude/instagram/plan.md` so the other skills can read
+Write the plan to `plan.md` so the other skills can read
 it. Nothing is scheduled or posted anywhere. This is a plan and the user runs
 it.

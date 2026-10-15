@@ -21,7 +21,7 @@ If you only have `followers`, leave median out and the script says so.
 
 Usage
   python3 swipe.py captured.tsv
-  python3 swipe.py captured.tsv --out ~/.claude/instagram/swipe.md
+  python3 swipe.py captured.tsv --out "$(python3 ~/.claude/skills/ig-account/account.py path)/swipe.md"
   python3 swipe.py captured.tsv --json
 """
 

@@ -18,6 +18,10 @@ A generic comment is worse than none. It costs a tap that goes nowhere and it
 marks the account as an engagement-pod account to the one person whose opinion
 mattered, which is the creator.
 
+Files below live in the active account's data folder: run
+`python3 ~/.claude/skills/ig-account/account.py path` (see /ig-account;
+defaults to `~/.claude/instagram`).
+
 ## Input
 
 The user pastes the post or reel text, or a screenshot, with the account name.
@@ -82,7 +86,7 @@ Post the first. It concedes something and it has a number in it.
 
 For an engagement round, ask for the 5 to 10 posts as pasted text in one
 message, return one comment each in a single block, and keep a running note in
-`~/.claude/instagram/engaged.md` of who has been commented on this week: the
+`engaged.md` of who has been commented on this week: the
 date, the account and one line on what the comment said. Keep it out of
 `log.md`, which is for the user's own posts. Read `engaged.md` before each
 round.

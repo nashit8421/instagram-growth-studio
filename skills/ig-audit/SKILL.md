@@ -14,6 +14,10 @@ The only honest source of what works for an account is that account. Every
 rule in every Instagram guide, including the ones in this pack, is a prior.
 The user's own last 30 posts are the evidence.
 
+Files below live in the active account's data folder: run
+`python3 ~/.claude/skills/ig-account/account.py path` (see /ig-account;
+defaults to `~/.claude/instagram`).
+
 ## Input
 
 Ask for whichever the user has:
@@ -39,10 +43,9 @@ Or a whole insights export at once:
 python3 ledger.py import export.csv
 ```
 
-The ledger lives in `~/.claude/instagram/posts.csv` and already knows each
-post's hook formula, format, length and first line if it was logged at
-publish. Also read `~/.claude/instagram/log.md` if it exists, since older
-posts recorded their hook formula there.
+The ledger lives in `posts.csv` and already knows each post's hook formula,
+format, length and first line if it was logged at publish. Also read `log.md`
+if it exists, since older posts recorded their hook formula there.
 
 ## What to actually measure
 
