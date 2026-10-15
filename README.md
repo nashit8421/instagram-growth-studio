@@ -70,6 +70,17 @@ out loud.
 | `/ig-repurpose` | One video, podcast or newsletter into a week of reels and carousels that each stand alone. |
 | `/ig-audit` | Post-mortem on what you already posted. Ranks by outlier multiple and sends per reach, not views. |
 
+## Extensions
+
+Three sibling skills plug into this pack. Install them next to the others in
+`~/.claude/skills/`.
+
+| skill | what it does |
+| --- | --- |
+| `/ig-ledger` | Logs every post and its numbers to `~/.claude/instagram/posts.csv`. `audit.py` does the `/ig-audit` maths. |
+| `/ig-test` | Runs a hook-against-hook test as two Trial Reels and reports which one won. |
+| `/ig-render` | Turns approved carousel and story copy into the PNGs you upload. |
+
 ## The five tools that actually run
 
 No dependencies, no network, nothing uploaded. They run on your machine, on
@@ -270,9 +281,11 @@ on `yt-dlp`, but the method is four lines and is written out in
 ## The fine print, which is the honest part
 
 **These skills do not post to Instagram.** There is a real Content Publishing
-API for Professional accounts, and it needs a Meta developer app, a linked
-Page, a long-lived token and app review, which is not a thing a skill can hand
-you. Everything else people use to automate posting, commenting, following or
+API for professional accounts. With the Instagram API with Instagram Login it
+needs no Facebook Page, and an app used only for accounts you own or manage
+runs on Standard Access with no App Review. It still needs a professional
+account, a Meta developer app and a token, which is not a thing a skill can
+hand you. Everything else people use to automate posting, commenting, following or
 DMing is browser automation or a third-party tool, and both violate
 [Instagram's Terms of Use](https://help.instagram.com/581066165581870) and get
 accounts action-blocked. So every skill here ends the same way: a copy-ready

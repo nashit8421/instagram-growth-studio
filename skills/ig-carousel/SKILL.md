@@ -62,18 +62,28 @@ LAST      CTA       one action. Save, comment a keyword, or follow. One.
 
 ## Building the files
 
-Instagram wants 1080x1350 (4:5), JPEG or PNG, up to 20 items. Build it as HTML
-and print each slide:
+Instagram wants 1080x1350 (4:5), JPEG or PNG, up to 20 items. Build the files
+only after the user approves the copy.
+
+Use `/ig-render`. Write the approved slides into a spec JSON, in the format
+that skill describes, then run:
 
 ```bash
-# one <section> per slide, 1080x1350, page-break-after: always
-# then Chrome headless --print-to-pdf, or any HTML-to-image you already use
+python3 render.py spec.json --out DIR --kind carousel
 ```
 
-Write the HTML with `width:1080px; height:1350px`, a single accent colour, and
-type no smaller than 32px, because this is read on a phone at a third of its
-real size. If the project has a brand skill or a design system, use it and do
-not invent a palette.
+It writes one 1080x1350 PNG per slide into `DIR`. Keep a single accent colour
+and type no smaller than 32px, because this is read on a phone at a third of
+its real size. If the project has a brand skill or a design system, use it and
+do not invent a palette.
+
+Once the user says it is going up, log it with `/ig-ledger`:
+
+```bash
+python3 ledger.py add --format carousel --theme T --first-line "the cover line"
+```
+
+Give the user the id it prints, so the numbers can be added later.
 
 ## Output
 

@@ -67,6 +67,12 @@ on-screen line for each. Different formulas, not three rewrites of one.
 `hookscore.py`. Show the user the ranking. If the top one is under 50, you do
 not have the hook yet and no amount of editing fixes that.
 
+If the top two are close, within about 10 points, the script cannot pick
+between them and neither can you. Test them instead. Instagram's Trial Reels
+show a reel to non-followers first, so the main feed never sees the loser.
+Set it up with `/ig-test` (`abtest.py new --a "hook A" --b "hook B"`), shoot
+both, post each as a trial, and let the numbers choose.
+
 **3. Write the script** on the winning hook. Plain spoken language, the way the
 user actually talks. Contractions. Short lines. No sentence they would have to
 rehearse.
@@ -93,8 +99,19 @@ Reply "yes" to log it, or tell me what to change.
 ```
 
 **7. Never publish.** This skill produces a script. The user shoots it and
-posts it. On "yes", append to `~/.claude/instagram/log.md` with the date, the
-hook formula used and the first line, so `/ig-audit` has a history later.
+posts it. On "yes", log it with `/ig-ledger`:
+
+```bash
+python3 ledger.py add --format reel --hook-formula N --first-line "the hook" --length S
+```
+
+It prints the new post id. Tell the user that id, so they can add the numbers
+later with `ledger.py update ID`. If it is one arm of a test, add
+`--trial --test-id T001 --variant A`.
+
+Also append to `~/.claude/instagram/log.md` with the date, the hook formula
+used and the first line, as before. Older tools still read that file. If
+`/ig-ledger` is not installed, the log.md line is enough on its own.
 
 ## On-screen text is a separate script
 

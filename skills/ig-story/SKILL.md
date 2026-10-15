@@ -94,4 +94,14 @@ STORIES  ·  Tuesday  ·  5 frames
 After: everyone who votes Yes gets a reply. That is the whole funnel.
 ```
 
+If the user wants the text frames as images, write them into a spec JSON and
+run `/ig-render` with `--kind story`:
+
+```bash
+python3 render.py spec.json --out DIR --kind story
+```
+
+It writes 1080x1920 PNGs with the text inside the safe middle. This is
+optional. Most story frames are filmed, not designed.
+
 Nothing is posted. The user posts it.
