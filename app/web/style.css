@@ -492,3 +492,4 @@ details.more[open] > summary::before { content: "▾ "; }
 .install-banner { padding: 12px max(16px, 28px) 0; }
 .install-banner .note { align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .install-banner .note span { flex: 1 1 280px; }
+.install-banner .row-btns { display: flex; gap: 8px; flex-wrap: wrap; }

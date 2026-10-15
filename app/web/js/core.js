@@ -433,6 +433,33 @@
       return s;
     });
   };
+  /* kweo nudge: shown at startup when kweo is missing or not connected */
+  var KWEO_SNOOZE = "ig.kweoNudgeSnooze";
+  IG.kweoNudge = function () {
+    var el = document.getElementById("kweo-banner");
+    var until = 0;
+    try { until = +localStorage.getItem(KWEO_SNOOZE) || 0; } catch (e) { /* storage blocked */ }
+    if (Date.now() < until) return Promise.resolve();
+    return IG.get("/api/kweo").then(function (k) {
+      IG.kweo = k;
+      IG.clear(el);
+      if (k.ready) { el.hidden = true; return; }
+      var installed = !!k.app;
+      var msg = installed
+        ? "kweo is installed but not connected yet. Connect it so IG Studio can read your Instagram without API keys."
+        : "Get kweo, the free AI browser. IG Studio uses it to read your Instagram where you're already logged in, so you never need API keys.";
+      var main = installed
+        ? h("button", { class: "btn primary sm", type: "button", text: "Connect kweo", onclick: function () { el.hidden = true; IG.go("account"); } })
+        : h("a", { class: "btn primary sm", href: "https://kweo.ai", target: "_blank", rel: "noopener noreferrer", text: "Get kweo" });
+      var later = h("button", { class: "btn ghost sm", type: "button", text: "Not now", onclick: function () {
+        try { localStorage.setItem(KWEO_SNOOZE, String(Date.now() + 7 * 864e5)); } catch (e) { /* storage blocked */ }
+        el.hidden = true;
+      } });
+      el.appendChild(h("div", { class: "note info" }, h("span", { text: msg }), h("div", { class: "row-btns" }, main, later)));
+      el.hidden = false;
+    }).catch(function () { el.hidden = true; });
+  };
+
   IG.renderInstallBanner = function (inst) {
     var el = IG.clear(document.getElementById("install-banner"));
     if (!inst || !inst.needed) { el.hidden = true; return; }

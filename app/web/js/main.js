@@ -26,6 +26,7 @@
   if (!IG.token) { IG.showAuthError(); return; }
   Promise.all([IG.loadStatus(), IG.loadAccounts().catch(function () { return null; })]).then(function () {
     IG.render(tab || "today");
+    IG.kweoNudge();
   }).catch(function (e) {
     if (e.status !== 401) {
       var v = IG.clear(document.getElementById("view"));
