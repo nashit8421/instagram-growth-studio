@@ -6,7 +6,9 @@ IG Studio - the local web front end for the ig-* Claude Code skills.
     python3 server.py --no-browser --port 8765
 
 Stdlib only (Python 3.9+). Binds 127.0.0.1, prints/opens a URL that carries a
-random token in its #hash. Every /api call needs that token in X-IG-Token.
+random token. The launcher opens /open?t=TOKEN once; the server swaps it for an
+HttpOnly SameSite=Strict cookie and redirects to /. Every /api call needs the
+token, in that cookie or in the X-IG-Token header.
 Nothing here posts, likes, follows, comments or messages anyone.
 """
 
@@ -1013,6 +1015,25 @@ class StudioServer(http.server.ThreadingHTTPServer):
                 kill_tree(j.proc)
 
 
+def open_browser(url):
+    """Open the default browser. On macOS use `open` (LaunchServices): Python's
+    webbrowser sends an AppleScript 'open location' that some browsers, kweo
+    among them, ignore until they are brought to the front."""
+    if sys.platform == "darwin":
+        try:
+            subprocess.run(["open", url], timeout=15, check=False,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return
+        except (OSError, subprocess.SubprocessError):
+            pass
+    webbrowser.open(url)
+
+
+def launch_url(port, token):
+    """The one-time link the launcher opens. The page itself ends up at a clean /."""
+    return f"http://127.0.0.1:{port}/open?t={token}"
+
+
 ROUTES = {}
 
 
@@ -1087,9 +1108,49 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def host_ok(self):
         return self.headers.get("Host", "") in self.server.allowed_hosts
 
-    def token_ok(self):
+    def _cookie_token(self):
+        raw = self.headers.get("Cookie", "")
+        for part in raw.split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == "igt":
+                return v
+        return ""
+
+    def token_ok(self, method="GET"):
+        want = self.server.token.encode()
         tok = self.headers.get("X-IG-Token", "")
-        return bool(tok) and hmac.compare_digest(tok.encode(), self.server.token.encode())
+        if tok and hmac.compare_digest(tok.encode(), want):
+            return True
+        ck = self._cookie_token()
+        if not (ck and hmac.compare_digest(ck.encode(), want)):
+            return False
+        # Cookie-only auth on a write must come from this page: SameSite=Strict
+        # already blocks other sites, and this rejects a write with no Origin.
+        if method != "GET" and self.headers.get("Origin") not in self.server.allowed_origins:
+            return False
+        return True
+
+    def open_with_token(self):
+        """/open?t=TOKEN: swap the launch token for a cookie, then go to a clean URL."""
+        tok = self.query.get("t", "")
+        if not (tok and hmac.compare_digest(tok.encode(), self.server.token.encode())):
+            body = ("<!doctype html><meta charset=utf-8><title>IG Studio</title>"
+                    "<p style='font:16px system-ui;margin:40px'>This IG Studio link has expired. "
+                    "Open IG Studio again from its launcher.</p>").encode()
+            self.send_response(403)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(303)
+        self.send_header("Set-Cookie", "igt=%s; Path=/; HttpOnly; SameSite=Strict" % self.server.token)
+        self.send_header("Location", "/")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def dispatch(self, method):
         if not self.host_ok():
@@ -1098,6 +1159,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         parsed = urllib.parse.urlsplit(self.path)
         path = parsed.path
         self.query = {k: v[-1] for k, v in urllib.parse.parse_qs(parsed.query, keep_blank_values=True).items()}
+        if path == "/open" and method == "GET":
+            self.open_with_token()
+            return
         if not path.startswith("/api/"):
             if method != "GET":
                 self.send_err(405, "Method not allowed.")
@@ -1109,7 +1173,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_err(403, "Cross-origin requests are not allowed.")
             return
         signed = path in ("/api/file", "/api/zip") and method == "GET"
-        if not self.token_ok() and not (signed and self.sig_ok(path)):
+        if not self.token_ok(method) and not (signed and self.sig_ok(path)):
             self.send_err(401, "Missing or wrong token. Open IG Studio from its launcher.")
             return
         try:
@@ -2270,10 +2334,10 @@ def main(argv=None):
 
     existing = running_instance()
     if existing:
-        url = f"http://127.0.0.1:{existing['port']}/#t={existing['token']}"
+        url = launch_url(existing['port'], existing['token'])
         print(f"IG Studio is already running at http://127.0.0.1:{existing['port']}/")
         if not args.no_browser:
-            webbrowser.open(url)
+            open_browser(url)
         return 0
 
     try:
@@ -2293,7 +2357,7 @@ def main(argv=None):
             except (ValueError, OSError):
                 pass
 
-    url = f"http://127.0.0.1:{srv.port}/#t={srv.token}"
+    url = launch_url(srv.port, srv.token)
     if sys.stdout:
         try:
             print(f"IG Studio is running: {url}")
@@ -2302,7 +2366,7 @@ def main(argv=None):
         except (OSError, ValueError):
             pass
     if not args.no_browser:
-        start_thread(lambda: (time.sleep(0.4), webbrowser.open(url)))
+        start_thread(lambda: (time.sleep(0.4), open_browser(url)))
     try:
         srv.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:

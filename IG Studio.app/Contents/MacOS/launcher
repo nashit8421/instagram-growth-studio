@@ -22,15 +22,17 @@ if [ -z "$PY" ]; then
 fi
 # Already running? Just reopen it in the browser. (Double-clicking again
 # otherwise only brings the old Terminal window forward and nothing opens.)
-RUNNING_URL="$("$PY" - "${IG_STUDIO_HOME:-$LOG_DIR}/lock.json" <<'PYEOF' 2>/dev/null
+RUNNING_URL="$("$PY" - "${IG_STUDIO_HOME:-$LOG_DIR}/lock.json" <<'PYEOF' 2>>"$LOG_DIR/server.log"
 import json, os, socket, sys
 try:
     d = json.load(open(sys.argv[1]))
     os.kill(int(d["pid"]), 0)
     socket.create_connection(("127.0.0.1", int(d["port"])), timeout=1).close()
-    print("http://127.0.0.1:%d/#t=%s" % (int(d["port"]), d["token"]))
-except Exception:
+    print("http://127.0.0.1:%d/open?t=%s" % (int(d["port"]), d["token"]))
+except FileNotFoundError:
     pass
+except Exception as e:
+    sys.stderr.write("reopen check: %s: %s\n" % (type(e).__name__, e))
 PYEOF
 )"
 if [ -n "$RUNNING_URL" ]; then

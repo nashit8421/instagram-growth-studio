@@ -516,3 +516,45 @@ class LockTests(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OpenLinkTests(Base):
+    """The launcher opens /open?t=TOKEN; the page then lives at a clean URL."""
+
+    def test_open_sets_cookie_and_redirects_to_clean_url(self):
+        st, _, r, _ = self.req("GET", f"/open?t={TOKEN}", token=None)
+        self.assertEqual(st, 303)
+        self.assertEqual(r.getheader("Location"), "/")
+        ck = r.getheader("Set-Cookie")
+        self.assertIn(f"igt={TOKEN}", ck)
+        for flag in ("HttpOnly", "SameSite=Strict", "Path=/"):
+            self.assertIn(flag, ck)
+
+    def test_wrong_link_token_is_refused_without_cookie(self):
+        st, _, r, payload = self.req("GET", "/open?t=nope", token=None)
+        self.assertEqual(st, 403)
+        self.assertIsNone(r.getheader("Set-Cookie"))
+        self.assertIn(b"expired", payload)
+
+    def test_cookie_authenticates_reads(self):
+        st, j, _, _ = self.req("GET", "/api/ping", token=None, headers={"Cookie": f"igt={TOKEN}"})
+        self.assertEqual(st, 200)
+        st, _, _, _ = self.req("GET", "/api/ping", token=None, headers={"Cookie": "igt=wrong"})
+        self.assertEqual(st, 401)
+
+    def test_stale_header_falls_back_to_cookie(self):
+        st, _, _, _ = self.req("GET", "/api/ping", token="old-token", headers={"Cookie": f"igt={TOKEN}"})
+        self.assertEqual(st, 200)
+
+    def test_cookie_write_needs_same_origin(self):
+        ck = {"Cookie": f"igt={TOKEN}"}
+        st, _, _, _ = self.req("POST", "/api/profile", body={}, token=None, headers=ck)
+        self.assertEqual(st, 401)
+        same = dict(ck, Origin=f"http://127.0.0.1:{self.port}")
+        st, _, _, _ = self.req("POST", "/api/profile", body={}, token=None, headers=same)
+        self.assertNotEqual(st, 401)
+
+    def test_launch_url_has_no_hash(self):
+        u = server.launch_url(8765, "abc")
+        self.assertEqual(u, "http://127.0.0.1:8765/open?t=abc")
+        self.assertNotIn("#", u)
