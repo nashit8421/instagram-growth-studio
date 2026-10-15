@@ -61,7 +61,11 @@ code block, so the caller can save it.
 Open `https://www.instagram.com/<handle>/` with `browser_new_tab`.
 To find the posts, call `browser_links` with `match: "/p/"` and again with
 `match: "/reel/"` (it lists the page's links, read only). Those are the post
-URLs, in grid order. If `browser_links` isn't available (an older kweo),
+URLs, in grid order. Then open `https://www.instagram.com/<handle>/reels/`
+and call `browser_links` with `match: "/reel/"` again: the Reels tab loads
+older reels the grid does not, so add any URL you do not have yet (after the
+grid's posts, newest first). The grid only shows about 12 posts without
+scrolling, so this is how a scan reaches more. If `browser_links` isn't available (an older kweo),
 read the grid with `browser_read`, capture what the tiles show, and say in
 `notes` that post URLs were not available. Read: name, bio, website,
 followers, following, posts count, category, whether it looks like a
