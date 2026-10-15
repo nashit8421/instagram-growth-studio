@@ -126,6 +126,16 @@ def check_specificity(text):
     return score, f"{hits} concrete markers, {density:.1f} per 100 words (want 4+)"
 
 
+def phrase_pattern(find):
+    """Match a lexicon entry as a whole phrase. The \\b goes only on an edge
+    that is a word character: "what are your thoughts?" ends on a "?", and a
+    \\b after it never matches at the end of a line."""
+    body = re.escape(find).replace(r"\ ", r"\s+")
+    head = r"\b" if re.match(r"\w", find) else ""
+    tail = r"\b" if re.search(r"\w$", find) else ""
+    return re.compile(head + body + tail, re.IGNORECASE)
+
+
 def check_slop(text, lex):
     """Stock vocabulary density against the lexicon."""
     w = words(text)
@@ -135,8 +145,7 @@ def check_slop(text, lex):
         return NA, "n/a: the slop lexicon is English"
     hits, found = 0, []
     for entry in lex["words"] + lex["phrases"]:
-        pattern = re.compile(r"\b" + re.escape(entry["find"]).replace(r"\ ", r"\s+") + r"\b",
-                             re.IGNORECASE)
+        pattern = phrase_pattern(entry["find"])
         n = len(pattern.findall(text))
         if n:
             hits += n
