@@ -32,8 +32,32 @@ import unicodedata
 HERE = os.path.dirname(os.path.abspath(__file__))
 LEX = os.path.join(HERE, "slop.json")
 
-SENT_RE = re.compile(r"[^.!?\n]+[.!?]*")
-WORD_RE = re.compile(r"[A-Za-z']+")
+
+def _mark_class():
+    """Every combining mark in the BMP, as the inside of a regex class.
+
+    Devanagari vowel signs, Arabic harakat and decomposed accents are
+    category M, which \\w does not match. Without them a Hindi word breaks
+    into pieces at every vowel sign. ZWNJ and ZWJ sit inside words in Urdu,
+    Persian and the Indic scripts, so they count as part of a word too.
+    """
+    ranges, start, prev = [], None, None
+    for cp in range(0x0300, 0x10000):
+        if unicodedata.category(chr(cp))[0] == "M":
+            start = cp if start is None else start
+            prev = cp
+        elif start is not None:
+            ranges.append((start, prev))
+            start = None
+    return "".join(re.escape(chr(a)) + ("-" + re.escape(chr(b)) if b > a else "")
+                   for a, b in ranges) + "\u200c\u200d"
+
+
+MARKS = _mark_class()
+# Sentence ends in Hindi (danda) and Urdu (full stop, question mark) too.
+SENT_RE = re.compile(r"[^.!?\u0964\u0965\u06d4\u061f\n]+[.!?\u0964\u0965\u06d4\u061f]*")
+# Letters in any script, with their combining marks, and the apostrophe.
+WORD_RE = re.compile(r"(?:[^\W\d_]|['" + MARKS + r"])+")
 CONTRACTIONS = re.compile(r"\b\w+'(?:s|t|re|ve|ll|d|m)\b", re.IGNORECASE)
 PRONOUNS = re.compile(r"\b(i|me|my|mine|we|us|our|you|your)\b", re.IGNORECASE)
 NUMBERS = re.compile(r"\b\d[\d,.]*%?\b|\$\d")
@@ -53,6 +77,23 @@ def scale(value, human, machine):
 
 def sentences(text):
     return [s.strip() for s in SENT_RE.findall(text) if len(s.split()) > 2]
+
+
+def non_latin(text):
+    """True when most letters are not Latin: Devanagari, Arabic, Cyrillic.
+
+    The slop lexicon, contractions and pronouns are English, and names are
+    found by their capital letter. On a script those cannot read, the check
+    goes neutral instead of calling the text machine-written.
+    """
+    letters = [c for c in text if c.isalpha()]
+    if not letters:
+        return False
+    latin = sum(1 for c in letters if unicodedata.name(c, "").startswith("LATIN"))
+    return latin * 2 < len(letters)
+
+
+NA = 50.0                # neutral: counts in the average, never as the weakest.
 
 
 def words(text):
@@ -79,6 +120,9 @@ def check_specificity(text):
     hits = len(NUMBERS.findall(text)) + len(set(PROPER.findall(text)))
     density = hits * per100
     score = scale(density, human=6.0, machine=0.5)
+    if non_latin(text) and score < NA:
+        return NA, (f"n/a: {hits} number(s), {density:.1f} per 100 words; names need "
+                    "capital letters, so they cannot be counted in this script")
     return score, f"{hits} concrete markers, {density:.1f} per 100 words (want 4+)"
 
 
@@ -87,6 +131,8 @@ def check_slop(text, lex):
     w = words(text)
     if not w:
         return 50.0, "empty"
+    if non_latin(text):
+        return NA, "n/a: the slop lexicon is English"
     hits, found = 0, []
     for entry in lex["words"] + lex["phrases"]:
         pattern = re.compile(r"\b" + re.escape(entry["find"]).replace(r"\ ", r"\s+") + r"\b",
@@ -123,6 +169,8 @@ def check_voice(text, lex):
     w = words(text)
     if len(w) < 25:
         return 50.0, "too short to judge"
+    if non_latin(text):
+        return NA, "n/a: contractions and pronouns are only read in English"
     per100 = 100 / len(w)
     contractions = len(CONTRACTIONS.findall(text)) * per100
     person = len(PRONOUNS.findall(text)) * per100
@@ -151,6 +199,10 @@ def check_voice(text, lex):
     return clamp(score), detail
 
 
+def applies(result):
+    return not result[1].startswith("n/a")
+
+
 CHECKS = ["BURSTINESS", "SPECIFICITY", "SLOP DENSITY", "FINGERPRINT", "VOICE"]
 
 
@@ -163,8 +215,10 @@ def run(text, lex):
     results["VOICE"] = check_voice(text, lex)
     scores = [results[c][0] for c in CHECKS]
     # The weakest check drags the verdict: a detector only needs one signal.
-    overall = statistics.mean(scores) * 0.6 + min(scores) * 0.4
-    verdict = "PASS" if overall >= 70 and min(scores) >= 55 else (
+    # A check marked n/a could not read the script, so it is never the weakest.
+    applied = [results[c][0] for c in CHECKS if applies(results[c])] or scores
+    overall = statistics.mean(scores) * 0.6 + min(applied) * 0.4
+    verdict = "PASS" if overall >= 70 and min(applied) >= 55 else (
         "REVIEW" if overall >= 50 else "FLAGGED")
     return results, overall, verdict
 
@@ -185,7 +239,8 @@ def render(results, overall, verdict, label=None, out=sys.stdout):
     print("-" * 62, file=out)
     print(f"  {'HUMAN SCORE':<13} {bar(overall)} {overall:5.1f}   {verdict}", file=out)
     if verdict != "PASS":
-        weakest = min(CHECKS, key=lambda c: results[c][0])
+        pool = [c for c in CHECKS if applies(results[c])] or CHECKS
+        weakest = min(pool, key=lambda c: results[c][0])
         print(f"\n  Weakest signal: {weakest}. Fix that first.", file=out)
     print("", file=out)
 
