@@ -15,6 +15,12 @@ description: >-
 The research skill. Everything else in this pack writes; this one goes and
 looks. Run it monthly, not daily. Formulas last a season.
 
+**Account context.** Before recommending anything, read `account.md` in the
+active account's data folder, or run `python3 ~/.claude/skills/ig-scan/scan.py context`.
+It has this account's niche, size tier, audience language, cadence and what
+already performs for it. Fit the advice to that. If it is missing, suggest
+/ig-scan once and carry on.
+
 One tool lives in this folder and it runs:
 
 ```bash

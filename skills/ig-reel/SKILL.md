@@ -13,6 +13,12 @@ description: >-
 
 Turns one raw idea into a Reel that somebody finishes.
 
+**Account context.** Before recommending anything, read `account.md` in the
+active account's data folder, or run `python3 ~/.claude/skills/ig-scan/scan.py context`.
+It has this account's niche, size tier, audience language, cadence and what
+already performs for it. Fit the advice to that. If it is missing, suggest
+/ig-scan once and carry on.
+
 Two tools live in this folder and they both actually run. Use them. Do not
 eyeball the hook and do not guess at the length.
 

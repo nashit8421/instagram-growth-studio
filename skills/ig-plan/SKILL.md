@@ -12,6 +12,12 @@ description: >-
 The control room. Everything else in this pack executes; this decides what gets
 executed. Run it once a week, on the same day.
 
+**Account context.** Before recommending anything, read `account.md` in the
+active account's data folder, or run `python3 ~/.claude/skills/ig-scan/scan.py context`.
+It has this account's niche, size tier, audience language, cadence and what
+already performs for it. Fit the advice to that. If it is missing, suggest
+/ig-scan once and carry on.
+
 Files below live in the active account's data folder: run
 `python3 ~/.claude/skills/ig-account/account.py path` (see /ig-account;
 defaults to `~/.claude/instagram`).

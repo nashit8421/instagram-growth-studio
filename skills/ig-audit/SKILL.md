@@ -14,6 +14,12 @@ The only honest source of what works for an account is that account. Every
 rule in every Instagram guide, including the ones in this pack, is a prior.
 The user's own last 30 posts are the evidence.
 
+**Account context.** Before recommending anything, read `account.md` in the
+active account's data folder, or run `python3 ~/.claude/skills/ig-scan/scan.py context`.
+It has this account's niche, size tier, audience language, cadence and what
+already performs for it. Fit the advice to that. If it is missing, suggest
+/ig-scan once and carry on.
+
 Files below live in the active account's data folder: run
 `python3 ~/.claude/skills/ig-account/account.py path` (see /ig-account;
 defaults to `~/.claude/instagram`).
