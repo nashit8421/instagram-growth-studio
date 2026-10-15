@@ -73,13 +73,19 @@ nothing else.
 browser_new_tab        open a fresh tab, so the user's own tabs are left alone
 browser_navigate       go to one URL
 browser_read           read the page as indexed handles and text, not pixels
+                       (each piece of text cut to about 64 characters)
+browser_text           the page's full text, uncut (captions, comments, articles)
+browser_links          where the page's links go (post URLs on a grid)
+browser_wait           wait for a slow page, then read it
 browser_tabs           list tabs
 browser_select_tab     switch tab
 ```
 
 The normal loop for one page: `browser_new_tab`, `browser_navigate`,
 `browser_read`, take notes, move on. `browser_read` returns structure, so
-pull view counts, captions and handles straight out of it. No screenshots.
+pull view counts and handles straight out of it. For any text you quote
+(captions, comments, bios), use `browser_text`: `browser_read` shortens it.
+No screenshots.
 
 Use `browser_run_task` only when a page needs scrolling or a filter set, and
 phrase the goal as reading:

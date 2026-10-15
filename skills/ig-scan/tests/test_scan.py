@@ -499,6 +499,27 @@ class TestAnalyze(Temp):
         thin = [r for r in a["what_performs"]["formula"] if r["n"] < 3]
         self.assertTrue(all(r["thin"] for r in thin))
 
+    def test_cut_captions_are_not_measured(self):
+        whole = "Train late again 🚂\nKitna late? Poisson batayega.\nSave this for exams 📊 #stats #hinglish"
+        cut = "Concept: → Poisson = KITNE events in fixed time → Exponential =…"
+        posts = [{"date": f"2026-01-{d:02d}", "type": "reel", "caption": c, "url": f"https://www.instagram.com/reel/{d}/",
+                  "views": 100 + d, "likes": 5, "comments": 1}
+                 for d, c in [(1, whole), (2, cut), (3, whole), (4, cut)]]
+        a = scan.analyze({"handle": "x", "followers": 1000}, posts, today=dt.date(2026, 2, 1))
+        self.assertEqual(a["content"]["captions_cut"], 2)
+        self.assertEqual(a["content"]["hashtags"]["none_posts"], 0)       # cut captions lost their tags; not counted
+        self.assertTrue(any("2 of 4 captions were only partly read" in n for n in a["honesty"]))
+        self.assertTrue(scan.caption_cut("abc..."))
+        self.assertFalse(scan.caption_cut("abc"))
+
+    def test_asks_in_emoji_and_hinglish_styles(self):
+        found = lambda t: sorted(name for pat, name in scan.asks_patterns() if pat.search(t))
+        self.assertEqual(found("💾 SAVE for distributions 📤 SHARE with chai lovers 💬 Kitna wait kiya hai max?"),
+                         ["answer a question", "save this", "share this"])
+        self.assertEqual(found("TTE story batao apni!"), ["answer a question"])
+        self.assertEqual(found("EXPONENTIAL DISTRIBUTION batayega! 📊"), [])
+        self.assertEqual(found("I saved it for later, share your thoughts"), [])
+
     def test_analyze_without_scan(self):
         code, _, err = self.cli("analyze")
         self.assertEqual(code, 2)

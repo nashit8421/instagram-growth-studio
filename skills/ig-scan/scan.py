@@ -1131,6 +1131,11 @@ def assign_theme(post, cl):
     return best
 
 
+def caption_cut(caption):
+    """A caption the reader could only see part of (kweo's page summary ends it with an ellipsis)."""
+    return (caption or "").rstrip().endswith(("…", "..."))
+
+
 def length_bucket(caption):
     n = len(WORD_RE.findall(body_text(caption)))
     if n < 20:
@@ -1217,6 +1222,8 @@ def analyze(account, posts, today=None):
 
     perf = performance(feed, followers)
     caps = [p.get("caption") or "" for p in feed]
+    n_cut = sum(1 for c in caps if caption_cut(c))
+    whole = [c for c in caps if not caption_cut(c)] or caps     # length, tags and asks need the whole caption
     df_kw = collections.Counter()
     for c in caps:
         df_kw.update(set(tokens(c)))
@@ -1229,19 +1236,19 @@ def analyze(account, posts, today=None):
         p["theme"] = assign_theme(p, cl)
         p["first_line"] = first_line(p.get("caption"))
         p["formula_id"], p["formula"] = classify_hook(p["first_line"])
-        p["length_bucket"] = length_bucket(p.get("caption"))
+        p["length_bucket"] = None if caption_cut(p.get("caption")) else length_bucket(p.get("caption"))
 
     cap = hashtag_cap()
-    per_post_tags = [len(hashtags(c)) for c in caps]
+    per_post_tags = [len(hashtags(c)) for c in whole]
     pats = asks_patterns()
     cta_counts, none_n, multi_n = collections.Counter(), 0, 0
-    for c in caps:
+    for c in whole:
         found = [name for pat, name in pats if pat.search(c or "")]
         cta_counts.update(found)
         none_n += not found
         multi_n += len(found) >= 2
     langs, scripts = detect_languages(caps)
-    words = [len(WORD_RE.findall(body_text(c))) for c in caps]
+    words = [len(WORD_RE.findall(body_text(c))) for c in whole]
     fl_chars = [len(first_line(c)) for c in caps if c]
     emoji_counts = [len(EMOJI_RE.findall(c)) for c in caps]
     formula_counts = collections.Counter(p["formula"] for p in feed if p["first_line"])
@@ -1281,8 +1288,9 @@ def analyze(account, posts, today=None):
             "first_line_chars_median": _median(fl_chars),
             "languages": [{"code": c, "share": s, "label": l} for c, s, l in langs],
             "scripts": scripts,
-            "cta": {"counts": dict(cta_counts.most_common()), "none_pct": _pct(none_n, len(caps)),
-                    "multi_pct": _pct(multi_n, len(caps))},
+            "cta": {"counts": dict(cta_counts.most_common()), "none_pct": _pct(none_n, len(whole)),
+                    "multi_pct": _pct(multi_n, len(whole))},
+            "captions_cut": n_cut,
             "hashtags": {"cap": cap, "mean": round(statistics.mean(per_post_tags), 1) if per_post_tags else 0,
                          "median": _median(per_post_tags), "max": max(per_post_tags) if per_post_tags else 0,
                          "over_cap_posts": sum(1 for x in per_post_tags if x > cap),
@@ -1318,6 +1326,10 @@ def honesty(a):
     missing = [m for m in ("views", "likes", "comments", "reach", "saves", "shares") if not have.get(m)]
     if missing:
         notes.append("missing metrics: " + ", ".join(missing))
+    cut = a["content"].get("captions_cut") or 0
+    if cut:
+        notes.append(f"{cut} of {n} captions were only partly read (cut off with …), so caption length, "
+                     "hashtags and asks come from the other posts. Rescan with a kweo that has browser_text")
     if a["size"]["followers"] is None:
         notes.append("no follower count, so no size tier or engagement rate. Ask the user")
     if a["performance"]["basis"] == "interactions":

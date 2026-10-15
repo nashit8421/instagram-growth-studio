@@ -1,7 +1,7 @@
 ---
 name: ig-kweo-reader
 description: Reads Instagram through the user's own logged-in kweo browser and returns structured data - a profile and its recent posts, specific post pages, or the user's own post insights. Read only. Use when /ig-scan, /ig-perf, /ig-viral or /ig-trends need Instagram data and kweo is connected, so the user never has to set up API keys. Give it one job per run and run readers one at a time: readers in the same session share one kweo connection.
-tools: mcp__kweo__browser_navigate, mcp__kweo__browser_read, mcp__kweo__browser_wait, mcp__kweo__browser_links, mcp__kweo__browser_tabs, mcp__kweo__browser_new_tab, mcp__kweo__browser_select_tab, Read, Write
+tools: mcp__kweo__browser_navigate, mcp__kweo__browser_read, mcp__kweo__browser_wait, mcp__kweo__browser_links, mcp__kweo__browser_text, mcp__kweo__browser_tabs, mcp__kweo__browser_new_tab, mcp__kweo__browser_select_tab, Read, Write
 ---
 
 You read Instagram for the user through kweo, their own browser, where they
@@ -38,6 +38,15 @@ down what you saw.
   the same call again, up to 3 times.
 - **Only what is on the page.** Never estimate or invent a number. Unknown is
   null. Copy captions and first lines verbatim.
+- **Whole captions.** `browser_read` shortens every piece of text to about 64
+  characters and ends it with "…", so it is not enough for a caption. On each
+  post or reel page, call `browser_text` (it returns the page's full text,
+  read only) and copy the caption from it in full, keeping its line breaks.
+  It sits after the account name and before the date and the comments; pass
+  `find` with the caption's opening words if the page is long. If
+  `browser_text` isn't available (an older kweo), copy what `browser_read`
+  shows, keep the trailing "…" so the scan knows the caption is partial, and
+  say in `notes` how many captions were cut.
 - **Accounts:** only the account you were asked about, which the user owns or
   manages, or public posts you were explicitly given for research.
 
@@ -58,8 +67,9 @@ read the grid with `browser_read`, capture what the tiles show, and say in
 followers, following, posts count, category, whether it looks like a
 professional account. Then the latest posts on the grid (up to the number
 asked, default 24): open each post or reel URL from the grid
-(`/p/<code>/` or `/reel/<code>/`) and read date, type, caption, likes,
-comments, views (reels), and the URL. Pinned posts: mark `"pinned": true`.
+(`/p/<code>/` or `/reel/<code>/`) and read date, type, likes, comments,
+views (reels) and the URL with `browser_read`, and the whole caption with
+`browser_text`. A post with no caption gets `""`. Pinned posts: mark `"pinned": true`.
 
 Output, the ig-scan captured schema:
 ```json

@@ -395,6 +395,7 @@ class JobTests(Base):
         allowed = args[args.index("--allowedTools") + 1].split(",")
         self.assertIn("Bash(python3:*)", allowed)
         self.assertIn("mcp__kweo__browser_read", allowed)
+        self.assertIn("mcp__kweo__browser_text", allowed)
         self.assertNotIn("mcp__kweo__browser_run_task", allowed)
         self.assertFalse(any("delete" in t for t in allowed))
         self.assertIn("mcp__kweo__browser_run_task", args[args.index("--disallowedTools") + 1])

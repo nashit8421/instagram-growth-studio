@@ -110,12 +110,13 @@ CONCRETE_RE = re.compile(r"\$\s?\d|\b\d[\d,.]*\b|(?<!^)\b[A-Z][a-z]{2,}\b", re.M
 ASKS = [
     (re.compile(r"(?i)\bcomment (?:the word |\")?[A-Z0-9]{2,}\b"), "comment a keyword"),
     (re.compile(r"(?i)\b(?:dm|message) me\b"), "DM me"),
-    (re.compile(r"(?i)\bsave (?:this|it)\b"), "save this"),
-    (re.compile(r"(?i)\bshare (?:this|it)\b"), "share this"),
-    (re.compile(r"(?i)\bfollow (?:me|for)\b"), "follow"),
+    (re.compile(r"(?i)\bsave (?:this|it|for|karo|kar lo|kar lena)\b|💾\s*save\b"), "save this"),
+    (re.compile(r"(?i)\bshare (?:this|it|with|karo|kar do|kardo)\b|📤\s*share\b"), "share this"),
+    (re.compile(r"(?i)\bfollow (?:me|for|karo|kar lo)\b"), "follow"),
     (re.compile(r"(?i)\blink in (?:my )?bio\b"), "link in bio"),
     (re.compile(r"(?i)\b(?:swipe|tap) (?:through|left|right|for|to)\b"), "swipe or tap"),
-    (re.compile(r"(?i)\btell me\b|\bwhat would you\b|\bwhich one\b"), "answer a question"),
+    (re.compile(r"(?i)\btell me\b|\bwhat would you\b|\bwhich one\b|\bcomment (?:below|karo|kar ke)\b"
+                r"|\bbatao\b|\bbataiye\b|💬[^\n]*\?"), "answer a question"),
 ]
 
 FILLER_TAGS = {"#viral", "#fyp", "#explore", "#explorepage", "#foryou", "#foryoupage",
