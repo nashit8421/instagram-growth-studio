@@ -13,6 +13,9 @@ The launchers are in the repo's main folder, next to this `app/` folder.
 **Mac**
 1. Double-click **IG Studio.app** (runs quietly in the background), or **IG Studio.command** (shows a Terminal window).
 2. Your browser opens IG Studio. First time macOS asks, right-click → Open.
+   If the folder is in Desktop, Documents or Downloads, macOS privacy blocks the app from
+   reading it, so IG Studio opens through Terminal instead (allow access if asked). To
+   avoid the Terminal window, move the folder to your home folder.
 3. Stop it with Settings → Quit (or close the Terminal window for the .command).
 
 **Windows**

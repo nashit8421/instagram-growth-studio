@@ -25,5 +25,19 @@ if [ ! -f "$SERVER" ]; then
   exit 1
 fi
 cd "$APP_DIR" || exit 1
+
+# macOS privacy protection: an unsigned app opened from Finder is not allowed
+# to read Desktop, Documents or Downloads, and macOS does not ask. Terminal can
+# ask for that permission, so if the files can't be read, hand over to the
+# .command launcher in Terminal instead of failing silently.
+if ! "$PY" -c 'import sys; open(sys.argv[1], "rb").read(1)' "$SERVER" >/dev/null 2>&1; then
+  echo "$(date '+%F %T') files not readable from the app (macOS privacy); opening in Terminal" >> "$LOG_DIR/server.log"
+  if [ -f "$APP_DIR/IG Studio.command" ]; then
+    open -a Terminal "$APP_DIR/IG Studio.command" && exit 0
+  fi
+  osascript -e 'display dialog "macOS is blocking IG Studio from reading this folder.\n\nDouble-click \"IG Studio.command\" in the same folder instead, or move the IG Studio folder out of Desktop, Documents and Downloads (for example into your home folder)." with title "IG Studio" buttons {"OK"} with icon caution' >/dev/null 2>&1
+  exit 1
+fi
+
 nohup "$PY" "$SERVER" >> "$LOG_DIR/server.log" 2>&1 &
 exit 0
