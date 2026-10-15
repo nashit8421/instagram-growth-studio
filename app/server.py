@@ -59,7 +59,7 @@ ALLOWED_TOOLS = [
     "Bash(python3:*)", "Bash(ffmpeg:*)", "Bash(ffprobe:*)",
     # harmless helpers Claude reaches for around the skill scripts
     "Bash(cd:*)", "Bash(ls:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)", "Bash(mkdir:*)", "Bash(date:*)",
-    "mcp__kweo__browser_navigate", "mcp__kweo__browser_read", "mcp__kweo__browser_wait", "mcp__kweo__browser_tabs",
+    "mcp__kweo__browser_navigate", "mcp__kweo__browser_read", "mcp__kweo__browser_wait", "mcp__kweo__browser_links", "mcp__kweo__browser_tabs",
     "mcp__kweo__browser_new_tab", "mcp__kweo__browser_select_tab",
     "mcp__claude_ai_Google_Calendar__list_calendars", "mcp__claude_ai_Google_Calendar__list_events",
     "mcp__claude_ai_Google_Calendar__create_event", "mcp__claude_ai_Google_Calendar__update_event",
