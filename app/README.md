@@ -8,6 +8,8 @@ ledger, growth chart, trends, sounds and the week's calendar.
 
 ## Start it
 
+The launchers are in the repo's main folder, next to this `app/` folder.
+
 **Mac**
 1. Double-click **IG Studio.app** (runs quietly in the background), or **IG Studio.command** (shows a Terminal window).
 2. Your browser opens IG Studio. First time macOS asks, right-click → Open.
@@ -23,7 +25,7 @@ ledger, growth chart, trends, sounds and the week's calendar.
 2. Your browser opens IG Studio.
 3. Stop it with Settings → Quit, or Ctrl+C in the terminal.
 
-Power users: `python3 server.py --no-browser --port 8765` prints the private URL.
+Power users: `python3 app/server.py --no-browser --port 8765` prints the private URL.
 Launching again while it runs just reopens the running one.
 
 ## What you need

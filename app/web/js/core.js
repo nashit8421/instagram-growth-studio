@@ -429,8 +429,30 @@
       IG.status = s;
       var dot = document.getElementById("side-dot");
       dot.className = "dot" + (s.claude.found ? "" : " off");
+      IG.renderInstallBanner(s.install);
       return s;
     });
+  };
+  IG.renderInstallBanner = function (inst) {
+    var el = IG.clear(document.getElementById("install-banner"));
+    if (!inst || !inst.needed) { el.hidden = true; return; }
+    var fresh = inst.missing.length && !inst.outdated.length && inst.missing.indexOf("ig") >= 0;
+    var msg = fresh
+      ? "IG Studio works now. Install the skills into Claude Code so the Assistant and the /ig command can use them too."
+      : "A newer version of the skills came with this download (" + (inst.missing.length + inst.outdated.length) + " to update). Your current ones are backed up first.";
+    var btn = h("button", { class: "btn primary sm", type: "button", text: fresh ? "Install skills" : "Update skills" });
+    btn.onclick = function () {
+      btn.disabled = true; btn.textContent = "Installing…";
+      IG.post("/api/install-skills").then(function (r) {
+        IG.toast("Installed " + r.installed.length + " skills" + (r.backup ? ". Old ones backed up." : "."), "ok");
+        return IG.loadStatus();
+      }).catch(function (e) {
+        btn.disabled = false; btn.textContent = "Try again";
+        IG.toast((e && e.message) || "Install failed", "bad");
+      });
+    };
+    el.appendChild(h("div", { class: "note info" }, h("span", { text: msg }), btn));
+    el.hidden = false;
   };
   IG.loadAccounts = function () {
     return IG.get("/api/accounts").then(function (a) {

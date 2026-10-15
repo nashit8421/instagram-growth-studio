@@ -117,8 +117,102 @@ def data_dir():
     return os.path.join(home, "accounts", h) if h else home
 
 
+REPO_DIR = os.path.dirname(APP_DIR)
+BUNDLED_SKILLS = os.path.join(REPO_DIR, "skills")
+BUNDLED_AGENTS = os.path.join(REPO_DIR, "agents")
+
+
+def claude_skills_dir():
+    return os.path.expanduser(os.environ.get("IG_CLAUDE_SKILLS") or "~/.claude/skills")
+
+
+def claude_agents_dir():
+    return os.path.expanduser(os.environ.get("IG_CLAUDE_AGENTS") or "~/.claude/agents")
+
+
 def skills_dir():
-    return os.path.expanduser(os.environ.get("IG_SKILLS_DIR") or "~/.claude/skills")
+    """Where the scripts run from: IG_SKILLS_DIR, else Claude Code's skills folder
+    if the pack is installed there, else the copy bundled with this repo, so a
+    fresh download works before anything is installed."""
+    env = os.environ.get("IG_SKILLS_DIR")
+    if env:
+        return os.path.expanduser(env)
+    installed = claude_skills_dir()
+    if os.path.isfile(os.path.join(installed, "ig", "state.py")):
+        return installed
+    if os.path.isfile(os.path.join(BUNDLED_SKILLS, "ig", "state.py")):
+        return BUNDLED_SKILLS
+    return installed
+
+
+def _tree_digest(path):
+    h = hashlib.sha256()
+    for root, dirs, files in os.walk(path):
+        dirs[:] = sorted(d for d in dirs if d not in ("__pycache__", "tests"))
+        for f in sorted(files):
+            if f.endswith(".pyc") or f == ".DS_Store":
+                continue
+            fp = os.path.join(root, f)
+            h.update(os.path.relpath(fp, path).encode())
+            try:
+                with open(fp, "rb") as fh:
+                    h.update(fh.read())
+            except OSError:
+                pass
+    return h.hexdigest()
+
+
+def install_status():
+    """Compare the bundled skills with what Claude Code has installed."""
+    if os.environ.get("IG_SKILLS_DIR") or not os.path.isdir(BUNDLED_SKILLS):
+        return {"bundled": False, "needed": False, "missing": [], "outdated": []}
+    inst = claude_skills_dir()
+    missing, outdated = [], []
+    for name in sorted(os.listdir(BUNDLED_SKILLS)):
+        src = os.path.join(BUNDLED_SKILLS, name)
+        if not (name.startswith("ig") and os.path.isfile(os.path.join(src, "SKILL.md"))):
+            continue
+        dst = os.path.join(inst, name)
+        if not os.path.isdir(dst):
+            missing.append(name)
+        elif _tree_digest(src) != _tree_digest(dst):
+            outdated.append(name)
+    return {"bundled": True, "needed": bool(missing or outdated), "missing": missing,
+            "outdated": outdated, "target": inst}
+
+
+def install_skills():
+    """Copy the bundled skills, platform.json and agents into Claude Code.
+    Existing ig* skills are backed up first, never deleted."""
+    inst, agents = claude_skills_dir(), claude_agents_dir()
+    os.makedirs(inst, exist_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    backup = os.path.join(os.path.dirname(inst), "skills-backup", stamp)
+    ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store", "tests")
+    done, backed = [], []
+    for name in sorted(os.listdir(BUNDLED_SKILLS)):
+        src = os.path.join(BUNDLED_SKILLS, name)
+        if not (name.startswith("ig") and os.path.isfile(os.path.join(src, "SKILL.md"))):
+            continue
+        dst = os.path.join(inst, name)
+        if os.path.isdir(dst):
+            os.makedirs(backup, exist_ok=True)
+            shutil.move(dst, os.path.join(backup, name))
+            backed.append(name)
+        shutil.copytree(src, dst, ignore=ignore)
+        done.append(name)
+    pj = os.path.join(REPO_DIR, "platform.json")
+    if os.path.isfile(pj):
+        shutil.copy2(pj, os.path.join(inst, "platform.json"))
+    agent_files = []
+    if os.path.isdir(BUNDLED_AGENTS):
+        os.makedirs(agents, exist_ok=True)
+        for f in sorted(os.listdir(BUNDLED_AGENTS)):
+            if f.endswith(".md"):
+                shutil.copy2(os.path.join(BUNDLED_AGENTS, f), os.path.join(agents, f))
+                agent_files.append(f)
+    return {"installed": done, "agents": agent_files, "target": inst,
+            "backup": backup if backed else None}
 
 
 def studio_home():
@@ -1243,7 +1337,18 @@ def api_status(h, body):
         "whisper": find_whisper(), "chrome": find_chrome(),
         "data_dir": data_dir(), "ig_home": ig_home(), "account": active_handle(),
         "scan_available": bool(script_path("ig-scan/scan.py")),
+        "install": install_status(),
     }
+
+
+@route("POST", "/api/install-skills")
+def api_install_skills(h, body):
+    if not install_status()["bundled"]:
+        raise ApiError(400, "There are no bundled skills next to this app to install.")
+    try:
+        return install_skills()
+    except OSError as e:
+        raise ApiError(500, f"Could not install the skills: {e}")
 
 
 @route("GET", "/api/state")

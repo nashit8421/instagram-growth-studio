@@ -28,9 +28,9 @@ rem Prefer pythonw so no console window lingers.
 set "PYW="
 for /f "usebackq delims=" %%i in (`!PY! -c "import sys, os; print(os.path.join(os.path.dirname(sys.executable), 'pythonw.exe'))"`) do set "PYW=%%i"
 if defined PYW if exist "!PYW!" (
-  start "" "!PYW!" "%~dp0server.py"
+  start "" "!PYW!" "%~dp0app\server.py"
   exit /b 0
 )
 
 echo Starting IG Studio. Keep this window open; close it to stop.
-!PY! "%~dp0server.py"
+!PY! "%~dp0app\server.py"

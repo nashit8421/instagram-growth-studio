@@ -2,7 +2,7 @@
 # IG Studio.app: starts the local server in the background and opens the browser.
 # Stop it from Settings > Quit in the app. Logs: ~/.ig-studio/server.log
 APP_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
-SERVER="$APP_DIR/server.py"
+SERVER="$APP_DIR/app/server.py"
 LOG_DIR="$HOME/.ig-studio"
 mkdir -p "$LOG_DIR" && chmod 700 "$LOG_DIR"
 
@@ -21,7 +21,7 @@ if [ -z "$PY" ]; then
   exit 1
 fi
 if [ ! -f "$SERVER" ]; then
-  osascript -e 'display dialog "IG Studio.app must stay in the IG Studio folder, next to server.py." with title "IG Studio" buttons {"OK"} with icon stop' >/dev/null 2>&1
+  osascript -e 'display dialog "IG Studio.app must stay in the IG Studio folder, next to the app folder." with title "IG Studio" buttons {"OK"} with icon stop' >/dev/null 2>&1
   exit 1
 fi
 cd "$APP_DIR" || exit 1

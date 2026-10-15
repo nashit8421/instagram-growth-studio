@@ -4,7 +4,7 @@
 cd "$(dirname "$0")" || exit 1
 for p in python3 python /usr/local/bin/python3 /usr/bin/python3; do
   if command -v "$p" >/dev/null 2>&1 && "$p" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' >/dev/null 2>&1; then
-    exec "$p" server.py "$@"
+    exec "$p" app/server.py "$@"
   fi
 done
 MSG="IG Studio needs Python 3.9 or newer. Install it with your package manager (for example: sudo apt install python3), then start IG Studio again."

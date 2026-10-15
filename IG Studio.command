@@ -21,4 +21,4 @@ if [ -z "$PY" ]; then
   exit 1
 fi
 echo "Starting IG Studio with $PY"
-exec "$PY" server.py "$@"
+exec "$PY" app/server.py "$@"

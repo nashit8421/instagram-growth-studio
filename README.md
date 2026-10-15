@@ -29,10 +29,16 @@ growth plan. Nothing is ever posted for you: these skills write, you post.
 
 ## Quick start
 
-**The app (easiest).** Download this repo, open `app/`, and double-click
-**IG Studio.app** (Mac), **IG Studio.bat** (Windows) or **IG Studio.desktop** (Linux).
-It needs Python 3.9+ and [Claude Code](https://claude.com/claude-code) for the AI parts.
-See [app/README.md](app/README.md).
+**The app (easiest).** Download this repo (green **Code** button → **Download ZIP**, then unzip)
+and double-click the launcher for your computer, right in the main folder:
+
+| Mac | Windows | Linux |
+|---|---|---|
+| **IG Studio.app** | **IG Studio.bat** | **IG Studio.desktop** |
+
+It opens in your browser. The first time, it offers to install the skills into Claude Code
+with one click (any existing ones are backed up first). It needs Python 3.9+, and
+[Claude Code](https://claude.com/claude-code) for the AI parts. More in [app/README.md](app/README.md).
 
 **The skills, in Claude Code.**
 
