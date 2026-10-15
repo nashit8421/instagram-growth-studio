@@ -220,7 +220,8 @@ def restore_capitals(original, text):
     starts = re.findall(r"(?:^|[.!?]\s+|\n)\s*([A-Za-z])", original)
     if not starts or sum(1 for c in starts if c.isupper()) * 2 < len(starts):
         return text
-    return re.sub(r"(?:^|(?<=[.!?] )|(?<=[.!?]\n)|(?<=\n))\s*([a-z])",
+    # An ellipsis is a pause, not a sentence end: "So... it worked" stays.
+    return re.sub(r"(?:^|(?<=[.!?] )(?<!\.\.\. )|(?<=[.!?]\n)|(?<=\n))\s*([a-z])",
                   lambda m: m.group(0)[:-1] + m.group(1).upper(), text)
 
 
