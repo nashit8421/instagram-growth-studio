@@ -1,0 +1,15 @@
+{
+  "kind": "carousel",
+  "handle": "@studio.mara",
+  "alt": "Cover slide reading: The $18,000 clause. One line I now put in every contract.",
+  "slides": [
+    {"role": "cover", "title": "THE $18,000 CLAUSE", "body": "One line I now put in every contract."},
+    {"title": "I approved the work.", "body": "They asked for the money back nine days later. Approval was a feeling. It was not a date."},
+    {"title": "What it says", "body": "Payment is due on delivery, not on approval."},
+    {"title": "Why delivery wins", "body": "Delivery is a date you can prove. Approval is a mood you cannot."},
+    {"title": "Add a review window", "body": "Five working days to raise changes. After that, the work is accepted."},
+    {"title": "Name the file, not the feeling", "body": "Delivery means the final files are in their folder. Write down which folder."},
+    {"role": "recap", "title": "The four lines", "list": ["Payment on delivery, not approval", "Delivery is the date files land", "Five working days to raise changes", "Silence after five days is acceptance"]},
+    {"role": "cta", "title": "Comment CONTRACT", "body": "I will send you the full clause."}
+  ]
+}
