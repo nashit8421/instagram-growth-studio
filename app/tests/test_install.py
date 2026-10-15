@@ -78,3 +78,31 @@ class InstallTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OpenConfirmTests(unittest.TestCase):
+    def setUp(self):
+        self.calls = []
+        self.saved = (server.open_browser, server.subprocess.run, server.sys.platform)
+        server.open_browser = lambda url: self.calls.append(("default", url))
+
+    def tearDown(self):
+        server.open_browser, server.subprocess.run, server.sys.platform = self.saved
+
+    def test_stops_once_the_browser_arrives(self):
+        srv = type("S", (), {"requests_seen": 0})()
+        def arrive(url):
+            self.calls.append(("default", url))
+            srv.requests_seen += 1
+        server.open_browser = arrive
+        self.assertTrue(server.open_and_confirm(srv, "http://x/open?t=a", waits=(0.5, 0.5)))
+        self.assertEqual(len(self.calls), 1)
+
+    def test_retries_then_falls_back_to_another_browser(self):
+        srv = type("S", (), {"requests_seen": 0})()
+        server.sys.platform = "darwin"
+        ran = []
+        server.subprocess.run = lambda args, **kw: (ran.append(args), type("R", (), {"returncode": 0})())[1]
+        self.assertFalse(server.open_and_confirm(srv, "http://x/open?t=a", waits=(0.3, 0.3)))
+        self.assertEqual(len(self.calls), 2)              # default browser tried twice
+        self.assertEqual(ran[0][:3], ["open", "-a", "Google Chrome"])

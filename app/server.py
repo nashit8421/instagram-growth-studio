@@ -1029,6 +1029,43 @@ def open_browser(url):
     webbrowser.open(url)
 
 
+def open_and_confirm(srv, url, waits=(6, 6)):
+    """Open the browser, then make sure it really arrived. Some browsers (kweo
+    in testing) occasionally create the tab but never send the request. If no
+    request reaches the server, open again; if that fails too, use another
+    installed browser on macOS and say so in the console."""
+    start = getattr(srv, "requests_seen", 0)
+    open_browser(url)
+    for i, wait in enumerate(waits):
+        deadline = time.time() + wait
+        while time.time() < deadline:
+            if getattr(srv, "requests_seen", 0) > start:
+                return True
+            time.sleep(0.25)
+        if i + 1 < len(waits):
+            open_browser(url)
+    if sys.platform == "darwin":
+        for app in ("Google Chrome", "Safari", "Firefox", "Arc", "Microsoft Edge", "Brave Browser"):
+            try:
+                r = subprocess.run(["open", "-a", app, url], timeout=15,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except (OSError, subprocess.SubprocessError):
+                continue
+            if r.returncode == 0:
+                try:
+                    print(f"Your default browser did not load IG Studio, so it opened in {app}.")
+                    sys.stdout.flush()
+                except (OSError, ValueError):
+                    pass
+                return False
+    try:
+        print("If no page opened, paste the address above into your browser.")
+        sys.stdout.flush()
+    except (OSError, ValueError):
+        pass
+    return False
+
+
 def launch_url(port, token):
     """The one-time link the launcher opens. The page itself ends up at a clean /."""
     return f"http://127.0.0.1:{port}/open?t={token}"
@@ -1153,6 +1190,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def dispatch(self, method):
+        self.server.requests_seen = getattr(self.server, "requests_seen", 0) + 1
         if not self.host_ok():
             self.send_err(403, "Bad host.")
             return
@@ -2366,7 +2404,7 @@ def main(argv=None):
         except (OSError, ValueError):
             pass
     if not args.no_browser:
-        start_thread(lambda: (time.sleep(0.4), open_browser(url)))
+        start_thread(lambda: (time.sleep(0.4), open_and_confirm(srv, url)))
     try:
         srv.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
