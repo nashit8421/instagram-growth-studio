@@ -54,7 +54,9 @@ only stopping when it needs your input or approval.
 
 Optional: [kweo](https://kweo.ai) lets the skills read your Instagram through the browser
 you're already logged into, with no API keys. `/ig-kweo` shows how to connect it.
-`ffmpeg` is needed for video editing and Chrome for carousel images.
+`ffmpeg` is needed for video editing and Chrome for carousel images. IG Studio sets up Whisper
+for word-timed captions by itself on first launch (Homebrew's whisper-cpp on a Mac, otherwise a
+private faster-whisper install in `~/.ig-studio`), in the background, with no admin password.
 
 ## All the skills
 

@@ -1150,6 +1150,166 @@ def open_and_confirm(srv, url, waits=(6, 6)):
     return False
 
 
+# ---------------------------------------------------------------- whisper setup
+#
+# Word-timed captions need a local Whisper. On every start IG Studio checks for
+# one and, if missing, installs it in the background so the app stays usable:
+#   macOS with Homebrew : brew install whisper-cpp + the multilingual base model
+#   everything else     : a private venv in ~/.ig-studio with faster-whisper
+# Nothing needs admin rights. Progress goes to /api/status and setup.log.
+
+WHISPER_MODEL_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"
+WHISPER_MODEL_MIN_BYTES = 100 * 1024 * 1024
+
+
+class WhisperSetup:
+    def __init__(self):
+        self.state = "idle"        # idle | checking | installing | ready | failed | skipped
+        self.step = ""
+        self.error = ""
+        self.method = ""
+        self.progress = None       # 0-100 while downloading
+        self._lock = threading.Lock()
+
+    def snapshot(self):
+        return {"state": self.state, "step": self.step, "error": self.error,
+                "method": self.method, "progress": self.progress}
+
+    def _log(self, msg):
+        try:
+            os.makedirs(studio_home(), exist_ok=True)
+            with open(os.path.join(studio_home(), "setup.log"), "a", encoding="utf-8") as f:
+                f.write(time.strftime("%F %T ") + msg.rstrip() + "\n")
+        except OSError:
+            pass
+
+    def _set(self, state=None, step=None, **kw):
+        if state:
+            self.state = state
+        if step is not None:
+            self.step = step
+            self._log(f"[{self.state}] {step}")
+        for k, v in kw.items():
+            setattr(self, k, v)
+
+    def check(self):
+        script = script_path("ig-edit/edit.py")
+        if not script:
+            return None
+        try:
+            r = subprocess.run([sys.executable, "-I", script, "--whisper-check"], capture_output=True,
+                               text=True, timeout=60, env=child_env(False))
+            return json.loads(r.stdout.strip().splitlines()[-1]) if r.stdout.strip() else None
+        except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+            return None
+
+    def _run(self, cmd, timeout=1800, env_extra=None):
+        env = child_env(False, env_extra)
+        self._log("$ " + " ".join(cmd))
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+        self._log((r.stdout or "")[-2000:] + (r.stderr or "")[-2000:])
+        return r
+
+    def _download_model(self):
+        dest_dir = os.path.join(studio_home(), "models")
+        os.makedirs(dest_dir, exist_ok=True)
+        dest = os.path.join(dest_dir, "ggml-base.bin")
+        if os.path.exists(dest) and os.path.getsize(dest) >= WHISPER_MODEL_MIN_BYTES:
+            return dest
+        tmp = dest + ".part"
+        self._set(step="Downloading the speech model (about 150 MB)", progress=0)
+        req = urllib.request.Request(WHISPER_MODEL_URL, headers={"User-Agent": "IG-Studio"})
+        with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
+            total = int(r.headers.get("Content-Length") or 0)
+            done = 0
+            while True:
+                chunk = r.read(1 << 20)
+                if not chunk:
+                    break
+                f.write(chunk)
+                done += len(chunk)
+                if total:
+                    self.progress = int(done * 100 / total)
+        if os.path.getsize(tmp) < WHISPER_MODEL_MIN_BYTES:
+            os.remove(tmp)
+            raise RuntimeError("the speech model download was incomplete")
+        os.replace(tmp, dest)
+        self.progress = None
+        return dest
+
+    def _brew(self):
+        for b in (shutil.which("brew"), "/opt/homebrew/bin/brew", "/usr/local/bin/brew"):
+            if b and os.path.exists(b):
+                return b
+        return None
+
+    def _install_brew(self, brew):
+        self.method = "whisper.cpp (Homebrew)"
+        st = self.check() or {}
+        if not st.get("whisper_cpp_without_model"):
+            self._set(step="Installing whisper.cpp with Homebrew (a few minutes)")
+            r = self._run([brew, "install", "whisper-cpp"], env_extra={
+                "HOMEBREW_NO_AUTO_UPDATE": "1", "NONINTERACTIVE": "1", "HOMEBREW_NO_INSTALL_CLEANUP": "1"})
+            if r.returncode != 0:
+                raise RuntimeError("brew install whisper-cpp failed: " + (r.stderr or r.stdout or "").strip()[-300:])
+        self._download_model()
+
+    def _install_venv(self):
+        self.method = "faster-whisper (private Python env)"
+        venv = os.path.join(studio_home(), "whisper-venv")
+        py = os.path.join(venv, "Scripts", "python.exe") if IS_WIN else os.path.join(venv, "bin", "python")
+        if not os.path.exists(py):
+            self._set(step="Creating a private Python environment")
+            r = self._run([sys.executable, "-m", "venv", venv], timeout=300)
+            if r.returncode != 0:
+                raise RuntimeError("could not create the Python environment: " + (r.stderr or "").strip()[-300:])
+        self._set(step="Installing faster-whisper (a few minutes)")
+        r = self._run([py, "-m", "pip", "install", "--disable-pip-version-check", "--quiet", "faster-whisper"])
+        if r.returncode != 0:
+            raise RuntimeError("pip install faster-whisper failed: " + (r.stderr or "").strip()[-300:])
+        self._set(step="Downloading the speech model (about 150 MB)")
+        r = self._run([py, "-c", "from faster_whisper import WhisperModel; "
+                       "WhisperModel('base', device='cpu', compute_type='int8')"])
+        if r.returncode != 0:
+            raise RuntimeError("could not download the speech model: " + (r.stderr or "").strip()[-300:])
+
+    def run(self):
+        if not self._lock.acquire(blocking=False):
+            return
+        try:
+            self._set("checking", "Checking for Whisper", error="")
+            st = self.check()
+            if st is None:
+                self._set("skipped", "The video editor skill isn't installed yet")
+                return
+            if st.get("ready"):
+                self._set("ready", "Whisper is ready", method=(st.get("transcriber") or {}).get("kind", ""))
+                return
+            self._set("installing", "Starting Whisper setup")
+            brew = self._brew() if sys.platform == "darwin" else None
+            if brew:
+                try:
+                    self._install_brew(brew)
+                except Exception as e:  # noqa: BLE001 - fall back to the venv route
+                    self._log(f"Homebrew route failed, trying the private env: {e}")
+                    self._install_venv()
+            else:
+                self._install_venv()
+            st = self.check() or {}
+            if st.get("ready"):
+                self._set("ready", "Whisper is ready. Captions follow your exact words now.")
+            else:
+                self._set("failed", "Whisper was installed but the editor can't use it yet",
+                          error="See ~/.ig-studio/setup.log")
+        except Exception as e:  # noqa: BLE001 - report any failure to the page
+            self._set("failed", "Whisper setup failed", error=str(e)[:400], progress=None)
+        finally:
+            self._lock.release()
+
+
+WHISPER = WhisperSetup()
+
+
 def launch_url(port, token):
     """The one-time link the launcher opens. The page itself ends up at a clean /."""
     return f"http://127.0.0.1:{port}/open?t={token}"
@@ -1533,7 +1693,14 @@ def api_status(h, body):
         "data_dir": data_dir(), "ig_home": ig_home(), "account": active_handle(),
         "scan_available": bool(script_path("ig-scan/scan.py")),
         "install": install_status(),
+        "whisper_setup": WHISPER.snapshot(),
     }
+
+
+@route("POST", "/api/setup/whisper")
+def api_setup_whisper(h, body):
+    start_thread(WHISPER.run)
+    return WHISPER.snapshot()
 
 
 @route("POST", "/api/reopen")
@@ -2505,6 +2672,8 @@ def main(argv=None):
         print(f"Could not start on port {args.port}: {e}", file=sys.stderr)
         return 1
     write_lock(srv.port, srv.token)
+    if not os.environ.get("IG_STUDIO_NO_SETUP"):
+        start_thread(WHISPER.run)
     atexit.register(release_lock, srv.token)
 
     def on_signal(signum, frame):

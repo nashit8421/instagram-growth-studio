@@ -430,6 +430,7 @@
       var dot = document.getElementById("side-dot");
       dot.className = "dot" + (s.claude.found ? "" : " off");
       IG.renderInstallBanner(s.install);
+      IG.renderSetupBanner(s.whisper_setup);
       return s;
     });
   };
@@ -486,6 +487,36 @@
         h("p", { class: "small muted", text: "Optional. Without kweo, IG Studio still works with your Instagram data download or screenshots." })));
       el.hidden = false;
     }).catch(function () { el.hidden = true; });
+  };
+
+  /* Whisper setup runs in the background on every launch; show it while it works. */
+  IG.renderSetupBanner = function (ws) {
+    var el = IG.clear(document.getElementById("setup-banner"));
+    var prev = IG._whisperState;
+    IG._whisperState = ws && ws.state;
+    if (!ws || ws.state === "idle" || ws.state === "skipped") { el.hidden = true; return; }
+    if (ws.state === "ready") {
+      el.hidden = true;
+      if (prev === "installing") IG.toast("Captions are ready: Whisper is installed", "ok");
+      return;
+    }
+    if (ws.state === "failed") {
+      var retry = h("button", { class: "btn sm", type: "button", text: "Try again", onclick: function () {
+        IG.post("/api/setup/whisper").then(function () { setTimeout(IG.loadStatus, 1500); });
+      } });
+      el.appendChild(h("div", { class: "note warn" },
+        h("span", { text: "Couldn't set up Whisper for exact captions: " + (ws.error || ws.step) +
+          ". Videos still get captions timed from your script." }), retry));
+      el.hidden = false;
+      return;
+    }
+    var pct = ws.progress != null ? " " + ws.progress + "%" : "";
+    el.appendChild(h("div", { class: "note info" },
+      h("span", { text: "Setting up exact video captions in the background: " + ws.step + pct +
+        ". You can keep using IG Studio." })));
+    el.hidden = false;
+    clearTimeout(IG._setupPoll);
+    IG._setupPoll = setTimeout(IG.loadStatus, 3000);
   };
 
   IG.renderInstallBanner = function (inst) {

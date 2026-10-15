@@ -485,6 +485,7 @@ def model_dirs():
     if os.environ.get("WHISPER_MODEL_DIR"):
         dirs.append(Path(os.environ["WHISPER_MODEL_DIR"]).expanduser())
     dirs += [data_dir() / "models", Path.home() / ".cache" / "whisper.cpp",
+             Path(os.environ.get("IG_STUDIO_HOME") or Path.home() / ".ig-studio").expanduser() / "models",
              Path.home() / ".cache" / "whisper", Path.home() / "models",
              Path("/opt/homebrew/share/whisper-cpp/models"),
              Path("/opt/homebrew/share/whisper-cpp"), Path("/usr/local/share/whisper-cpp")]
@@ -508,10 +509,33 @@ def find_ggml_model():
     return str(found[0]) if found else None
 
 
+def studio_whisper_python():
+    """The private Python env IG Studio sets up for faster-whisper, if present."""
+    home = Path(os.environ.get("IG_STUDIO_HOME") or Path.home() / ".ig-studio").expanduser()
+    venv = home / "whisper-venv"
+    py = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    if not py.exists():
+        return None
+    if any(venv.glob("lib/python*/site-packages/faster_whisper")) or (venv / "Lib/site-packages/faster_whisper").exists():
+        return str(py)
+    return None
+
+
+def _which_any(name):
+    exe = shutil.which(name)
+    if exe:
+        return exe
+    for d in ("/opt/homebrew/bin", "/usr/local/bin"):   # apps started from Finder get a short PATH
+        p = Path(d) / name
+        if p.exists():
+            return str(p)
+    return None
+
+
 def find_transcriber():
     """The first usable local Whisper, or None. Never installs anything."""
     for name in ("whisper-cli", "whisper-cpp"):
-        exe = shutil.which(name)
+        exe = _which_any(name)
         if exe:
             model = find_ggml_model()
             if model:
@@ -520,6 +544,9 @@ def find_transcriber():
         return {"kind": "mlx_whisper"}
     if importlib.util.find_spec("faster_whisper"):
         return {"kind": "faster_whisper"}
+    py = studio_whisper_python()
+    if py:
+        return {"kind": "faster_whisper", "python": py}
     exe = shutil.which("whisper")
     if exe:
         return {"kind": "openai-whisper", "exe": exe}
@@ -527,7 +554,7 @@ def find_transcriber():
 
 
 def whisper_cpp_without_model():
-    return bool(shutil.which("whisper-cli") or shutil.which("whisper-cpp")) and not find_ggml_model()
+    return bool(_which_any("whisper-cli") or _which_any("whisper-cpp")) and not find_ggml_model()
 
 
 PY_WORDS = {
@@ -564,7 +591,7 @@ def transcribe(t, wav, lang, workdir):
         return [{"word": c["text"], "start": c["start"], "end": c["end"]}
                 for c in parse_srt(srt.read_text(encoding="utf-8", errors="replace"))]
     if t["kind"] in PY_WORDS:
-        r = run([sys.executable, "-c", PY_WORDS[t["kind"]], str(wav), lang])
+        r = run([t.get("python") or sys.executable, "-c", PY_WORDS[t["kind"]], str(wav), lang])
         if r.returncode != 0:
             raise EditError(f"{t['kind']} failed: {r.stderr.strip()[-300:]}")
         return json.loads(r.stdout.strip().splitlines()[-1])
@@ -920,6 +947,12 @@ def build_parser():
 
 
 def main(argv=None, out=sys.stdout):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["--whisper-check"]:          # used by IG Studio's setup
+        t = find_transcriber()
+        print(json.dumps({"ready": bool(t), "transcriber": t,
+                          "whisper_cpp_without_model": whisper_cpp_without_model()}), file=out)
+        return 0 if t else 1
     a = build_parser().parse_args(argv)
     if a.pad < 0 or a.min_silence <= 0 or a.max_length <= 0:
         print("error: --pad, --min-silence and --max-length must be positive", file=sys.stderr)

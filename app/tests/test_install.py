@@ -128,3 +128,69 @@ class OpenConfirmTests(unittest.TestCase):
         self.assertFalse(server.open_and_confirm(srv, "http://x/open?t=a", waits=(0.3, 0.3)))
         self.assertEqual(len(self.calls), 2)              # default browser tried twice
         self.assertEqual(ran[0][:3], ["open", "-a", "Google Chrome"])
+
+
+class WhisperSetupTests(unittest.TestCase):
+    def make(self, checks, platform="darwin", brew="/opt/homebrew/bin/brew"):
+        w = server.WhisperSetup()
+        seq = list(checks)
+        w.check = lambda: seq.pop(0) if len(seq) > 1 else seq[0]
+        w._brew = lambda: brew
+        self.cmds = []
+        def run(cmd, timeout=1800, env_extra=None):
+            self.cmds.append(cmd)
+            return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+        w._run = run
+        w._download_model = lambda: self.cmds.append(["download-model"]) or "/m/ggml-base.bin"
+        w._log = lambda msg: None
+        self.saved = server.sys.platform
+        server.sys.platform = platform
+        return w
+
+    def tearDown(self):
+        server.sys.platform = self.saved
+
+    def test_already_installed_does_nothing(self):
+        w = self.make([{"ready": True, "transcriber": {"kind": "whisper.cpp"}}])
+        w.run()
+        self.assertEqual(w.state, "ready")
+        self.assertEqual(self.cmds, [])
+
+    def test_mac_with_brew_installs_whisper_cpp_and_model(self):
+        w = self.make([{"ready": False}, {"ready": False}, {"ready": True}])
+        w.run()
+        self.assertEqual(w.state, "ready")
+        self.assertIn(["/opt/homebrew/bin/brew", "install", "whisper-cpp"], self.cmds)
+        self.assertIn(["download-model"], self.cmds)
+
+    def test_no_brew_uses_private_venv(self):
+        w = self.make([{"ready": False}, {"ready": True}], platform="linux", brew=None)
+        w.run()
+        self.assertEqual(w.state, "ready")
+        self.assertTrue(any("faster-whisper" in c for c in self.cmds))
+        self.assertTrue(any(c[1:3] == ["-m", "venv"] for c in self.cmds))
+
+    def test_brew_failure_falls_back_to_venv(self):
+        w = self.make([{"ready": False}, {"ready": False}, {"ready": True}])
+        orig = w._run
+        def run(cmd, timeout=1800, env_extra=None):
+            if cmd[1:3] == ["install", "whisper-cpp"]:
+                self.cmds.append(cmd)
+                return type("R", (), {"returncode": 1, "stdout": "", "stderr": "boom"})()
+            return orig(cmd, timeout, env_extra)
+        w._run = run
+        w.run()
+        self.assertEqual(w.state, "ready")
+        self.assertTrue(any("faster-whisper" in c for c in self.cmds))
+
+    def test_failure_is_reported_not_raised(self):
+        w = self.make([{"ready": False}], platform="linux", brew=None)
+        w._run = lambda cmd, timeout=1800, env_extra=None: type("R", (), {"returncode": 1, "stdout": "", "stderr": "no network"})()
+        w.run()
+        self.assertEqual(w.state, "failed")
+        self.assertIn("no network", w.error)
+
+    def test_skips_when_editor_missing(self):
+        w = self.make([None])
+        w.run()
+        self.assertEqual(w.state, "skipped")
