@@ -11,7 +11,7 @@ description: >-
 
 # ig
 
-One command. It reads where the account is and drives the other 24 skills
+One command. It reads where the account is and drives the other 26 skills
 from there. The user answers questions and approves things. Claude does the
 rest.
 
@@ -61,7 +61,8 @@ them, move on.
 
 For a **reel**: /ig-reel (hooks scored, script, beat sheet, humanized) →
 if two hooks are close, offer /ig-test → /ig-audio for the sound → the user
-films → /ig-edit on their file → /ig-caption → the user posts → log with
+films → /ig-direct on their file (storyboard, the user approves, then the
+render; /ig-edit for a quick cut) → /ig-caption → the user posts → log with
 /ig-ledger → remind them /ig-perf will ask for numbers at 1h, 24h, 72h, 7d.
 
 For a **carousel**: /ig-carousel → user approves copy → /ig-render →

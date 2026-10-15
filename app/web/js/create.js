@@ -188,13 +188,191 @@
         IG.card("Images", "1080×1350 for carousels, 1080×1920 for stories", out.childNodes.length ? out : (out.appendChild(h("p", { class: "muted small", text: "Rendered slides show up here with a grid-crop preview and alt text." })), out))));
   }
 
-  /* ---------- video */
+  /* ---------- video: Claude directs (ig-direct) */
+  var DIRECT_KEY = "igdirect";
+  function directSaved() { try { return JSON.parse(localStorage.getItem(DIRECT_KEY) || "null"); } catch (e) { return null; } }
+  function directSave(v) { try { localStorage.setItem(DIRECT_KEY, JSON.stringify(v)); } catch (e) { /* ignore */ } }
+
+  function directForm(source, out) {
+    var form = h("form", { class: "stack-sm" });
+    var mood = IG.select("mood", [["auto", "Claude decides"], ["energetic", "Energetic"], ["calm", "Calm"], ["funny", "Funny"], ["dramatic", "Dramatic"], ["warm", "Warm / personal"], ["premium", "Premium"], ["story", "Story"]], "auto");
+    var length = IG.select("length", [["auto", "Claude decides"], ["15", "About 15s"], ["25", "About 25s"], ["35", "About 35s"], ["45", "About 45s"], ["60", "About 60s"]], "auto");
+    var lang = IG.select("lang", [["auto", "Detect"], ["en", "English"], ["hi", "Hindi / Hinglish"], ["ur", "Urdu"], ["es", "Spanish"], ["pt", "Portuguese"], ["ar", "Arabic"]], "auto");
+    var notes = IG.textarea("notes", { rows: 3, maxlength: "2000", placeholder: "Optional: what is this video about, who is it for, anything you want (\"open on the punchline\", \"keep my intro\", \"make it feel premium\")" });
+    form.appendChild(h("div", { class: "form-grid" }, IG.field("Mood", mood), IG.field("Length", length), IG.field("Language spoken", lang)));
+    form.appendChild(IG.field("Notes for the director", notes));
+    form.appendChild(h("div", { class: "row" }, IG.btn("Plan my edit", { cls: "primary", type: "submit", icon: "assistant" }),
+      h("span", { class: "small muted", text: "Claude plans it, shows you a storyboard, and renders only when you say so. 3 to 8 minutes." })));
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var body = IG.formData(form);
+      body.path = source.path;
+      var btn = form.querySelector("button[type=submit]");
+      IG.busy(btn, function () {
+        return IG.post("/api/video/direct", body).then(function (res) {
+          directSave({ dir: res.dir, session_id: null, name: source.name });
+          return watchDirector(res, out, "The director is on it");
+        });
+      });
+    });
+    return form;
+  }
+
+  /* Follow a Claude run: one line per step (agents, storyboard...), then the storyboard. */
+  function watchDirector(res, out, title) {
+    IG.clear(out);
+    var steps = h("ol", { class: "steps small" });
+    var said = "";
+    var t0 = Date.now();
+    var timer = h("span", { class: "small faint num" });
+    var tick = setInterval(function () { timer.textContent = Math.round((Date.now() - t0) / 1000) + "s"; }, 1000);
+    var cancel = h("button", { class: "btn sm ghost", type: "button", text: "Cancel" });
+    out.appendChild(IG.card(title, "Each step is a specialist. You can keep using IG Studio meanwhile.",
+      h("div", { class: "stack-sm" }, h("div", { class: "row between" }, h("div", { class: "row" }, h("span", { class: "spin" }), h("span", { class: "small muted", text: "Working" }), timer), cancel),
+        h("div", { class: "progress indet" }, h("i")), steps)));
+    var seen = {};
+    var sid = null;
+    return new Promise(function (resolve) {
+      var s = IG.stream(res.job, function (ev) {
+        if (ev.type === "session" && ev.session_id) sid = ev.session_id;
+        if (ev.type === "tool" && ev.summary && !seen[ev.summary] && !/^(Reading|Searching|Loading)/.test(ev.summary)) {
+          seen[ev.summary] = 1;
+          steps.appendChild(h("li", { text: ev.summary }));
+          said = "";
+        }
+        if (ev.type === "text" && ev.text) said += ev.text;
+        if (ev.type === "end") {
+          clearInterval(tick);
+          if (ev.session_id) sid = ev.session_id;
+          var saved = directSaved() || {};
+          if (saved.dir === res.dir) { saved.session_id = sid || saved.session_id; saved.summary = said.trim(); directSave(saved); }
+          if (ev.status === "done") showBoard(res.dir, out, said.trim());
+          else { IG.clear(out).appendChild(IG.note(ev.status === "cancelled" ? "" : "bad", ev.status === "cancelled" ? "Cancelled." : (ev.error || "The director stopped."))); }
+          resolve();
+        }
+      });
+      cancel.addEventListener("click", function () { cancel.disabled = true; s.cancel().catch(IG.fail); });
+    });
+  }
+
+  function showBoard(dir, out, summary) {
+    IG.clear(out).appendChild(h("p", { class: "small muted", text: "Loading the storyboard…" }));
+    return IG.get("/api/video/direct?" + IG.q({ dir: dir })).then(function (d) {
+      IG.clear(out);
+      var saved = directSaved() || {};
+      summary = summary || (saved.dir === dir ? saved.summary : "");
+      if (!d.ready) { out.appendChild(IG.note("warn", "There is no storyboard in this folder yet. " + (summary || ""))); return; }
+      var b = d.brief || {};
+      var meta = [Math.round(d.length || 0) + "s", (d.panels || []).length - 1 + " shots", b.mood ? "mood: " + b.mood : null, d.look.grade ? "grade: " + d.look.grade : null, d.captions.style ? "captions: " + d.captions.style : null].filter(Boolean).join(" · ");
+      var head = h("div", { class: "stack-sm" },
+        h("div", { class: "row between" }, h("h3", { text: b.concept || "Storyboard" }), h("span", { class: "badge " + ((d.score || 0) >= 85 ? "ok" : "warn"), text: "Checklist " + (d.score || 0) + "/100" })),
+        h("p", { class: "small muted", text: meta }),
+        b.hook ? h("p", null, h("b", { text: "Hook: " }), b.hook) : null,
+        summary ? h("details", { class: "more" }, h("summary", { text: "What the director says" }), IG.md ? IG.md(summary) : h("div", { class: "pre", text: summary })) : null);
+      var grid = h("div", { class: "gallery storyboard" }, (d.panels || []).map(function (p, i) {
+        return h("figure", null, p.image ? h("img", { src: p.image, alt: "Frame at " + p.t + "s", loading: "lazy" }) : null,
+          h("figcaption", null, h("b", { text: i + ". " + (p.t || 0).toFixed(1) + "s · " + p.role }), p.said ? h("div", { class: "small muted", text: p.said }) : null, p.note ? h("div", { class: "small faint", text: p.note }) : null));
+      }));
+      var checks = h("ul", { class: "checklist small" }, (d.checklist || []).map(function (c) {
+        return h("li", { class: c.ok ? "ok" : "no" }, h("span", { text: (c.ok ? "✓ " : "✗ ") + c.msg }), !c.ok && c.fix ? h("div", { class: "faint", text: c.fix }) : null);
+      }));
+      var sounds = ((d.sound || {}).suggested_audio || []).filter(function (a) { return a && a.name; });
+      var soundBox = h("div", { class: "stack-sm" }, h("h3", { text: "Sound" }), h("p", { class: "small", text: (d.sound || {}).brief || "Voice only." }),
+        sounds.length ? h("ul", { class: "small" }, sounds.map(function (a) { return h("li", null, h("b", { text: a.name }), " " + (a.why || "") + (a.volume ? " (" + a.volume + ")" : "")); })) : null,
+        h("p", { class: "small faint", text: "Add the sound inside Instagram when you post, so it stays licensed and counts toward the trend." }));
+      var critic = d.critic ? h("div", { class: "stack-sm" }, h("h3", { text: d.critic_stale ? "Critic, on the first cut: " + (d.critic.score || "?") + "/10 (its fixes are in this version)" : "Critic: " + (d.critic.score || "?") + "/10" }), d.critic.scroll_risk ? h("p", { class: "small", text: "Biggest scroll risk: " + d.critic.scroll_risk }) : null) : null;
+      var change = IG.textarea("change", { rows: 2, maxlength: "3000", placeholder: "e.g. bigger captions, open on the second line, calmer look, keep it under 20s" });
+      var actions = h("div", { class: "stack-sm" },
+        h("div", { class: "row" }, IG.btn("Render it", { cls: "primary", icon: "check", onClick: function () { return renderDirected(dir, out); } }),
+          d.html ? h("a", { class: "btn ghost", href: d.html, target: "_blank", rel: "noopener", text: "Open full storyboard" }) : null),
+        IG.field("Or change something", change),
+        h("div", null, IG.btn("Change it", { onClick: function () {
+          var text = change.value.trim();
+          if (!text) { change.focus(); return; }
+          var sv = directSaved() || {};
+          return IG.post("/api/video/direct/revise", { dir: dir, change: text, session_id: sv.dir === dir ? sv.session_id : null }).then(function (res) {
+            return watchDirector(res, out, "Changing the storyboard");
+          });
+        } })));
+      out.appendChild(IG.card("Storyboard", "Real frames, rendered with the planned captions, zoom and grade. Nothing final is rendered until you say so.",
+        h("div", { class: "stack" }, head,
+          d.preview ? h("div", { class: "video-wrap" }, h("video", { src: d.preview, controls: true, playsinline: true, preload: "metadata", style: { maxWidth: "260px" } }),
+            h("div", { class: "stack-sm grow" }, h("p", { class: "small muted", text: "Low-res preview of the whole edit. Watch it with sound." }), actions)) : actions,
+          grid,
+          h("div", { class: "cols" }, h("div", { class: "stack-sm" }, h("h3", { text: "Virality checklist" }), checks), h("div", { class: "stack" }, soundBox, critic)))));
+      if (d.render) out.appendChild(renderedView(d.render));
+    }).catch(function (e) { IG.clear(out).appendChild(IG.note("bad", e.message)); });
+  }
+
+  function renderDirected(dir, out) {
+    var box = h("div");
+    out.insertBefore(box, out.firstChild);
+    return IG.runJob(IG.post("/api/video/direct/render", { dir: dir }), box, { label: "Rendering your Reel at 1080×1920…" }).then(function () {
+      return showBoard(dir, out);
+    }).catch(function (e) { if (!e.handled) IG.fail(e); });
+  }
+
+  function renderedView(r) {
+    var rep = r.report || {};
+    return IG.card("Your Reel", "Rendered on this computer. Nothing was uploaded or posted.",
+      h("div", { class: "stack" },
+        h("div", { class: "video-wrap" }, h("video", { src: r.video.url, controls: true, playsinline: true, preload: "metadata" }),
+          h("div", { class: "stack-sm grow" },
+            h("div", { class: "stats" }, IG.stat("Length", (rep.length || 0).toFixed(1) + "s", (rep.shots || 0) + " shots"), IG.stat("Checklist", (rep.score || 0) + "/100")),
+            h("div", { class: "row" }, h("a", { class: "btn primary", href: r.video.download }, IG.icon("download"), h("span", { text: "Download reel.mp4" })),
+              r.cover ? h("a", { class: "btn", href: r.cover.download }, IG.icon("download"), h("span", { text: "Cover" })) : null),
+            r.cover ? h("img", { src: r.cover.url, alt: "Cover frame", style: { width: "120px", borderRadius: "10px", border: "1px solid var(--border)" } }) : null,
+            h("p", { class: "small muted", text: "Next: write the post caption in Create → Caption checker, add the suggested sound in Instagram, and log the post." }))),
+        r.checks && r.checks.length ? h("div", { class: "stack-sm" }, h("h3", { text: "Safe-zone check frames" }),
+          h("div", { class: "gallery" }, r.checks.map(function (c) { return h("figure", null, h("img", { src: c.url, alt: c.name, loading: "lazy" }), h("figcaption", { text: c.name })); }))) : null));
+  }
+
   function video() {
     var file = h("input", { type: "file", accept: "video/*,.mov,.mp4,.m4v", id: "vid-file" });
     var up = h("div");
-    var opts = h("form", { class: "stack-sm", hidden: true });
+    var modeBox = h("div", { class: "stack" });
     var out = h("div", { class: "stack" });
-    var source = null;
+    var resume = h("div", { class: "small" });
+    IG.get("/api/video/direct").then(function (r) {
+      var items = (r.edits || []).slice(0, 5);
+      if (!items.length) return;
+      resume.appendChild(h("span", { class: "muted", text: "Recent storyboards: " }));
+      items.forEach(function (it, i) {
+        if (i) resume.appendChild(document.createTextNode(" · "));
+        resume.appendChild(h("a", { href: "#", text: it.name.replace(/-direct-(\d{8})-(\d{4})\d{2}$/, " ($1 $2)") + (it.rendered ? " ✓" : ""),
+          onclick: function (e) { e.preventDefault(); showBoard(it.dir, out); } }));
+      });
+    }).catch(function () { /* the list is a convenience */ });
+    file.addEventListener("change", function () {
+      var f = file.files && file.files[0];
+      if (!f) return;
+      var bar = h("div", { class: "progress" }, h("i"));
+      var lbl = h("span", { class: "small muted", text: "Uploading " + f.name + " (" + IG.n(f.size / 1048576, 1) + " MB)…" });
+      IG.clear(up).appendChild(h("div", { class: "stack-sm" }, lbl, bar));
+      IG.clear(modeBox);
+      IG.upload(f, "video", function (p) { bar.firstChild.style.width = Math.round(p * 100) + "%"; }).then(function (r) {
+        IG.clear(up).appendChild(h("div", { class: "row" }, IG.icon("check"), h("span", { text: r.name + " is ready." })));
+        var body = h("div");
+        var claude = IG.claudeReady ? IG.claudeReady() : true;
+        var MODES = [["direct", "Direct with Claude"], ["quick", "Quick edit"]];
+        var show = function (k) { IG.clear(body).appendChild(k === "direct" ? directForm(r, out) : quickEdit(r)); };
+        modeBox.appendChild(IG.seg(MODES, claude ? "direct" : "quick", show, "How to edit"));
+        modeBox.appendChild(body);
+        show(claude ? "direct" : "quick");
+      }).catch(function (e) { IG.clear(up).appendChild(IG.note("bad", e.message)); });
+    });
+    var noFf = IG.status && !IG.status.ffmpeg;
+    return h("div", { class: "stack" },
+      noFf ? IG.note("warn", "Video editing needs ffmpeg. On a Mac: brew install ffmpeg. On Windows: winget install ffmpeg. Then restart IG Studio.") : null,
+      IG.card("Your footage", "Direct with Claude: a director and four specialist agents plan the hook, cuts, captions, look and sound, show you a storyboard, then render. Quick edit: cut pauses and caption, no AI.",
+        h("div", { class: "stack-sm" }, IG.field("Video file (up to 4 GB)", file), up, resume, modeBox)),
+      out);
+  }
+
+  /* ---------- video: quick edit (ffmpeg only) */
+  function quickEdit(source) {
+    var opts = h("form", { class: "stack-sm" });
+    var out = h("div", { class: "stack" });
     var hook = IG.input("hook_text", { placeholder: "e.g. 5 HOURS -> 20 MIN", maxlength: "120" });
     var cut = h("input", { type: "checkbox", name: "cut_silence", checked: true });
     var caps = IG.select("captions", [["burn", "Burn in"], ["srt", "Separate .srt"], ["none", "None"]], "burn");
@@ -214,18 +392,6 @@
     opts.appendChild(h("div", null, IG.btn("Make my reel", { cls: "primary", type: "submit" })));
     var noWhisper = IG.status && !IG.status.whisper;
     if (noWhisper) opts.appendChild(h("p", { class: "small muted", text: "No local Whisper found, so captions come from your script (approximate timing) or are skipped." }));
-    file.addEventListener("change", function () {
-      var f = file.files && file.files[0];
-      if (!f) return;
-      var bar = h("div", { class: "progress" }, h("i"));
-      var lbl = h("span", { class: "small muted", text: "Uploading " + f.name + " (" + IG.n(f.size / 1048576, 1) + " MB)…" });
-      IG.clear(up).appendChild(h("div", { class: "stack-sm" }, lbl, bar));
-      IG.upload(f, "video", function (p) { bar.firstChild.style.width = Math.round(p * 100) + "%"; }).then(function (r) {
-        source = r;
-        IG.clear(up).appendChild(h("div", { class: "row" }, IG.icon("check"), h("span", { text: r.name + " is ready." })));
-        opts.hidden = false;
-      }).catch(function (e) { IG.clear(up).appendChild(IG.note("bad", e.message)); });
-    });
     opts.addEventListener("submit", function (e) {
       e.preventDefault();
       if (!source) return;
@@ -260,12 +426,7 @@
         h("div", { class: "gallery" }, r.checks.map(function (c) { return h("figure", null, h("img", { src: c.url, alt: c.name, loading: "lazy" }), h("figcaption", { text: c.name })); }))));
       out.appendChild(h("p", { class: "small muted", text: "Add music inside Instagram when you post, so it stays licensed. Nothing was uploaded." }));
     }
-    var noFf = IG.status && !IG.status.ffmpeg;
-    return h("div", { class: "stack" },
-      noFf ? IG.note("warn", "Video editing needs ffmpeg. On a Mac: brew install ffmpeg. On Windows: winget install ffmpeg. Then restart IG Studio.") : null,
-      IG.card("Your footage", "Cuts pauses, frames it 9:16 at 1080×1920, adds captions and a hook card. Runs on this computer.",
-        h("div", { class: "stack-sm" }, IG.field("Video file (up to 4 GB)", file), up, opts)),
-      out);
+    return h("div", { class: "stack" }, opts, out);
   }
 
   var BUILDERS = { hooks: hooks, beats: beats, caption: caption, human: human, carousel: carousel, video: video };
@@ -277,7 +438,7 @@
       var body = h("div");
       var show = function (k) { cur = k; try { sessionStorage.setItem("igcreate", k); } catch (e) { /* ignore */ } IG.clear(body).appendChild(BUILDERS[k]()); };
       view.appendChild(h("div", { class: "stack" },
-        h("div", { class: "row between" }, IG.seg(TOOLS, cur, show, "Tool"), h("span", { class: "small muted", text: "Instant. No AI, nothing leaves this computer." })),
+        h("div", { class: "row between" }, IG.seg(TOOLS, cur, show, "Tool"), h("span", { class: "small muted", text: "Runs on this computer. Nothing is posted." })),
         body));
       show(cur);
     }

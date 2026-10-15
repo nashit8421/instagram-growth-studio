@@ -48,7 +48,17 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(server.skills_dir(), server.BUNDLED_SKILLS)
         st = server.install_status()
         self.assertTrue(st["needed"])
-        self.assertEqual(st["missing"], ["ig", "ig-reel"])
+        self.assertEqual(st["missing"], ["ig", "ig-reel", "agent a"])
+
+    def test_a_changed_agent_needs_an_update(self):
+        server.install_skills()
+        self.assertFalse(server.install_status()["needed"])
+        open(os.path.join(server.BUNDLED_AGENTS, "a.md"), "a").write("new rule\n")
+        st = server.install_status()
+        self.assertTrue(st["needed"])
+        self.assertEqual(st["outdated"], ["agent a"])
+        server.install_skills()
+        self.assertFalse(server.install_status()["needed"])
 
     def test_install_copies_skips_tests_and_switches_dir(self):
         r = server.install_skills()

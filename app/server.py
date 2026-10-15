@@ -187,6 +187,20 @@ def install_status():
             missing.append(name)
         elif _tree_digest(src) != _tree_digest(dst):
             outdated.append(name)
+    agents = claude_agents_dir()
+    if os.path.isdir(BUNDLED_AGENTS):
+        for f in sorted(os.listdir(BUNDLED_AGENTS)):
+            if not f.endswith(".md"):
+                continue
+            dst = os.path.join(agents, f)
+            try:
+                with open(os.path.join(BUNDLED_AGENTS, f), "rb") as x, open(dst, "rb") as y:
+                    same = x.read() == y.read()
+            except OSError:
+                missing.append("agent " + f[:-3])
+                continue
+            if not same:
+                outdated.append("agent " + f[:-3])
     return {"bundled": True, "needed": bool(missing or outdated), "missing": missing,
             "outdated": outdated, "target": inst}
 
@@ -722,10 +736,24 @@ def system_context():
     )
 
 
+DIRECT_STEPS = {"analyze": "Watching the footage: transcript, pauses, frames",
+                "merge": "Merging the edit plan", "check": "Scoring the virality checklist",
+                "storyboard": "Rendering the storyboard", "render": "Rendering the Reel",
+                "fonts": "Getting caption fonts"}
+DIRECT_AGENTS = {"ig-cut-editor": "Cut editor: picking shots, hook and pacing",
+                 "ig-caption-designer": "Caption designer: style, size, placement",
+                 "ig-look-designer": "Look designer: grade and mood",
+                 "ig-sound-designer": "Sound designer: SFX and trending sounds",
+                 "ig-retention-critic": "Critic: watching it like a scroller"}
+
+
 def tool_summary(name, inp):
     inp = inp if isinstance(inp, dict) else {}
     if name == "Bash":
         cmd = str(inp.get("command", ""))
+        d = re.search(r"direct\.py\s+(analyze|merge|check|storyboard|render|fonts)\b", cmd)
+        if d:
+            return DIRECT_STEPS[d.group(1)]
         m = re.search(r"([\w.-]+\.py)\b", cmd)
         if m:
             return f"Running {m.group(1)}"
@@ -747,7 +775,10 @@ def tool_summary(name, inp):
     if name == "Skill":
         return f"Using /{inp.get('skill') or inp.get('command') or 'skill'}"
     if name in ("Task", "Agent"):
-        return f"Starting helper: {inp.get('subagent_type') or inp.get('description') or 'agent'}"
+        sub = inp.get("subagent_type") or ""
+        if sub in DIRECT_AGENTS:
+            return DIRECT_AGENTS[sub]
+        return f"Starting helper: {sub or inp.get('description') or 'agent'}"
     if name == "ToolSearch":
         return "Loading tools"
     if name.startswith("mcp__kweo__"):
@@ -2358,6 +2389,163 @@ def api_video_edit(h, body):
                              for fn in sorted(os.listdir(chk)) if fn.lower().endswith(".png")]
         return res
     start_thread(run_script_job, job, "ig-edit/edit.py", args, 4 * 3600, None, None, after)
+    return {"job": job.id}
+
+
+# ---------------------------------------------------------------- video: Claude directs (ig-direct)
+
+DIRECT_MOODS = ("auto", "energetic", "calm", "funny", "dramatic", "warm", "premium", "story")
+
+
+def direct_dir(value):
+    d = safe_data_path(value)
+    if not os.path.isdir(d) or not within(d, os.path.join(data_dir(), "edits")):
+        raise ApiError(400, "That is not an edit folder.")
+    return d
+
+
+def direct_prompt(src, folder, body):
+    mood = body.get("mood") or "auto"
+    if mood not in DIRECT_MOODS:
+        raise ApiError(400, "Unknown mood.")
+    length = body.get("length") or "auto"
+    if length != "auto":
+        try:
+            length = int(length)
+        except (TypeError, ValueError):
+            raise ApiError(400, "Length is a number of seconds.")
+        if not 7 <= length <= 90:
+            raise ApiError(400, "Length must be 7 to 90 seconds.")
+    lang = str(body.get("lang") or "auto").strip()
+    if not re.fullmatch(r"auto|[a-z]{2,3}", lang):
+        raise ApiError(400, "Language is a code like en or hi.")
+    notes = str(body.get("notes") or "").strip()[:2000]
+    return (
+        "/ig-direct Direct this video into a Reel.\n"
+        f"Video: {src}\n"
+        f"Edit folder: {folder}  (run analyze with --dir set to exactly this folder)\n"
+        f"Mood: {mood if mood != 'auto' else 'you decide from the footage and the account'}\n"
+        f"Target length: {str(length) + ' seconds' if length != 'auto' else 'you decide'}\n"
+        f"Language: {lang}\n"
+        f"What I want: {notes or '(nothing extra; make it as watchable as you can)'}\n\n"
+        "Do steps 1 to 5: analyze, write the brief, fire up the section agents, merge, "
+        "storyboard with --preview, the critic and one revision round. Then STOP at step 6. "
+        "Do not render: I approve the storyboard in IG Studio first. End with a short summary "
+        "for me: the concept, mood, length, hook, checklist score and anything I should know.")
+
+
+@route("POST", "/api/video/direct")
+def api_video_direct(h, body):
+    src = safe_data_path(body.get("path"))
+    if os.path.splitext(src)[1].lower() not in UPLOAD_KINDS["video"][0]:
+        raise ApiError(400, "Pick a video file.")
+    stem = sanitize_filename(os.path.splitext(os.path.basename(src))[0] + ".x")[:-2][:40] or "reel"
+    folder = os.path.join(data_dir(), "edits", f"{stem}-direct-{stamp()}")
+    prompt = direct_prompt(src, folder, body)
+    if not find_claude():
+        raise ApiError(503, "Claude Code is not installed.", {"install": "https://claude.com/claude-code"})
+    if not script_path("ig-direct/direct.py"):
+        raise ApiError(503, "The director skill (ig-direct) is not installed yet. Install the skills first.")
+    os.makedirs(folder, exist_ok=True)
+    job = h.new_job("chat", "Directing " + os.path.basename(src))
+    start_thread(run_chat_job, job, h.server, prompt, None)
+    return {"job": job.id, "dir": folder}
+
+
+@route("POST", "/api/video/direct/revise")
+def api_video_direct_revise(h, body):
+    folder = direct_dir(body.get("dir"))
+    change = str(body.get("change") or "").strip()
+    if not change:
+        raise ApiError(400, "Say what to change.")
+    sid = body.get("session_id")
+    if sid is not None and (not isinstance(sid, str) or not SID_RE.fullmatch(sid)):
+        sid = None
+    prompt = (f"/ig-direct Change the storyboard in {folder}: {change[:3000]}\n"
+              "Apply it (edit the section JSON yourself, or send it back to the agent that owns it), "
+              "then merge and storyboard with --preview again. Do not render. "
+              "End with a two-line summary of what changed and the new checklist score.")
+    job = h.new_job("chat", "Changing the storyboard")
+    start_thread(run_chat_job, job, h.server, prompt, sid)
+    return {"job": job.id, "dir": folder}
+
+
+def direct_state(srv, folder):
+    def url(rel):
+        p = os.path.join(folder, rel)
+        return srv.file_url(p) if os.path.isfile(p) else None
+
+    def rj(name):
+        try:
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return None
+    sb = rj("storyboard.json")
+    plan = rj("plan.json") or {}
+    res = {"dir": folder, "name": os.path.basename(folder), "ready": bool(sb), "brief": plan.get("brief") or {},
+           "look": {k: (plan.get("look") or {}).get(k) for k in ("grade", "vignette", "progress_bar")},
+           "captions": {k: (plan.get("captions") or {}).get(k) for k in ("style", "font", "size", "highlight")},
+           "sound": {k: (plan.get("sound") or {}).get(k) for k in ("brief", "suggested_audio", "sfx")},
+           "critic": rj("critic.json"), "html": url("storyboard.html")}
+    try:   # a critic score from before the latest storyboard was the first cut: its fixes came after
+        res["critic_stale"] = bool(res["critic"]) and os.path.getmtime(os.path.join(folder, "critic.json")) < \
+            os.path.getmtime(os.path.join(folder, "storyboard.json"))
+    except OSError:
+        res["critic_stale"] = False
+    if sb:
+        res.update({"length": sb.get("length"), "score": sb.get("score"), "checklist": sb.get("checklist"),
+                    "made_at": sb.get("made_at"), "preview": url(sb["preview"]) if sb.get("preview") else None,
+                    "panels": [{"t": p.get("t"), "shot": p.get("shot"), "role": p.get("role"), "said": p.get("said"),
+                                "note": (p.get("shot_info") or {}).get("note"),
+                                "image": url(p["image"]) if p.get("image") else None}
+                               for p in sb.get("panels") or []]})
+    rep = rj("render-report.json")
+    out = os.path.join(folder, "reel.mp4")
+    if rep and os.path.isfile(out):
+        res["render"] = {"report": rep, "video": {"path": out, "url": srv.file_url(out),
+                                                  "download": srv.file_url(out, download=True)}}
+        cov = rep.get("cover")
+        if cov and os.path.isfile(cov):
+            res["render"]["cover"] = {"url": srv.file_url(cov), "download": srv.file_url(cov, download=True)}
+        chk = os.path.join(folder, "check")
+        if os.path.isdir(chk):
+            res["render"]["checks"] = [{"name": fn, "url": srv.file_url(os.path.join(chk, fn))}
+                                       for fn in sorted(os.listdir(chk)) if fn.lower().endswith(".png")]
+    return res
+
+
+@route("GET", "/api/video/direct")
+def api_video_direct_get(h, body):
+    if h.query.get("dir"):
+        return direct_state(h.server, direct_dir(h.query.get("dir")))
+    root = os.path.join(data_dir(), "edits")
+    items = []
+    if os.path.isdir(root):
+        for name in sorted(os.listdir(root), reverse=True):
+            d = os.path.join(root, name)
+            if "-direct-" in name and os.path.isfile(os.path.join(d, "storyboard.json")):
+                items.append({"dir": d, "name": name, "rendered": os.path.isfile(os.path.join(d, "reel.mp4"))})
+            if len(items) >= 12:
+                break
+    return {"edits": items}
+
+
+@route("POST", "/api/video/direct/render")
+def api_video_direct_render(h, body):
+    folder = direct_dir(body.get("dir"))
+    if not os.path.isfile(os.path.join(folder, "storyboard.json")):
+        raise ApiError(400, "There is no storyboard to render yet.")
+    job = h.new_job("edit", "Rendering the Reel")
+    srv = h.server
+
+    def after(rc, stdout, err):
+        rep = parse_json_out(stdout)
+        if rep is None or rep.get("error"):
+            raise ApiError(400, (rep or {}).get("error") or friendly_error(err, stdout))
+        return direct_state(srv, folder)
+    start_thread(run_script_job, job, "ig-direct/direct.py", ["render", folder, "--json"], 4 * 3600,
+                 None, None, after)
     return {"job": job.id}
 
 

@@ -504,3 +504,16 @@ details.more[open] > summary::before { content: "▾ "; }
 .kweo-why, .kweo-steps { margin: 0; padding-left: 20px; display: grid; gap: 7px; font-size: 14px; line-height: 1.45; }
 .kweo-card .small.muted { margin: 0; }
 @media (max-width: 720px) { .kweo-cols { grid-template-columns: 1fr; } }
+
+/* ---------- Claude directs: storyboard */
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; color: var(--muted); }
+.steps li:last-child { color: var(--text); font-weight: 600; }
+.gallery.storyboard { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.gallery.storyboard img { aspect-ratio: 9 / 16; object-fit: cover; }
+.gallery.storyboard figcaption { display: block; }
+.checklist { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.checklist li.ok span { color: var(--ok); }
+.checklist li.no span { color: var(--bad); }
+.checklist .faint { font-size: 12px; margin-left: 16px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+.row > svg { width: 18px; height: 18px; flex: none; color: var(--ok); }

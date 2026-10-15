@@ -579,3 +579,90 @@ class OpenLinkTests(Base):
         u = server.launch_url(8765, "abc")
         self.assertEqual(u, "http://127.0.0.1:8765/open?t=abc")
         self.assertNotIn("#", u)
+
+
+class DirectTests(Base):
+    """Claude directs: the endpoints around /ig-direct (the fake claude stands in)."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        os.environ["IG_SKILLS_DIR"] = os.path.join(os.path.dirname(HERE), "..", "skills")
+
+    @classmethod
+    def tearDownClass(cls):
+        os.environ.pop("IG_SKILLS_DIR", None)
+        super().tearDownClass()
+
+    def upload_video(self, name="raw.mp4"):
+        p = os.path.join(server.data_dir(), "uploads", name)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "wb") as f:
+            f.write(b"not really a video")
+        return p
+
+    def test_direct_starts_claude_with_the_brief_and_stops_before_render(self):
+        if not server.script_path("ig-direct/direct.py"):
+            self.skipTest("ig-direct not available")
+        src = self.upload_video()
+        st, j, _, _ = self.req("POST", "/api/video/direct", {"path": src, "mood": "energetic", "length": "25",
+                                                              "lang": "hi", "notes": "open on the punchline"})
+        self.assertEqual(st, 200, j)
+        self.assertTrue(os.path.isdir(j["dir"]))
+        self.assertTrue(os.path.realpath(j["dir"]).startswith(os.path.realpath(os.path.join(server.data_dir(), "edits"))))
+        evs = self.events(j["job"])
+        self.assertEqual(evs[-1]["type"], "end")
+        prompt = self.fake_calls()[-1]["prompt"]
+        for bit in ("/ig-direct", src, j["dir"], "energetic", "25 seconds", "Language: hi", "open on the punchline",
+                    "STOP at step 6", "Do not render"):
+            self.assertIn(bit, prompt)
+
+    def test_direct_validates_input(self):
+        src = self.upload_video("v2.mp4")
+        for body, code in (({"path": src, "mood": "spooky"}, 400), ({"path": src, "length": "5"}, 400),
+                           ({"path": src, "lang": "english!"}, 400), ({"path": "/etc/passwd"}, 403)):
+            st, j, _, _ = self.req("POST", "/api/video/direct", body)
+            self.assertEqual(st, code, (body, j))
+
+    def test_storyboard_state_list_render_and_revise(self):
+        folder = os.path.join(server.data_dir(), "edits", "clip-direct-20260101-000000")
+        os.makedirs(os.path.join(folder, "storyboard"), exist_ok=True)
+        st, j, _, _ = self.req("POST", "/api/video/direct/render", {"dir": folder})
+        self.assertEqual(st, 400)                                   # no storyboard yet: never render blind
+        with open(os.path.join(folder, "storyboard", "frame_01.jpg"), "wb") as f:
+            f.write(b"jpg")
+        with open(os.path.join(folder, "storyboard.json"), "w") as f:
+            json.dump({"length": 18.2, "score": 92, "checklist": [{"ok": True, "msg": "hook"}],
+                       "panels": [{"t": 0, "shot": "s1", "role": "first frame", "image": "storyboard/frame_01.jpg"}],
+                       "preview": None}, f)
+        with open(os.path.join(folder, "plan.json"), "w") as f:
+            json.dump({"brief": {"concept": "trains", "mood": "energetic"}, "look": {"grade": "punchy"},
+                       "captions": {"style": "bold-pop"}, "sound": {"brief": "beat"}}, f)
+        st, j, _, _ = self.req("GET", "/api/video/direct?" + urllib.parse.urlencode({"dir": folder}))
+        self.assertEqual(st, 200, j)
+        self.assertTrue(j["ready"])
+        self.assertEqual(j["score"], 92)
+        self.assertEqual(j["brief"]["concept"], "trains")
+        self.assertTrue(j["panels"][0]["image"].startswith("/api/file?"))
+        st, j, _, _ = self.req("GET", "/api/video/direct")
+        self.assertIn(folder, [e["dir"] for e in j["edits"]])
+        st, j, _, _ = self.req("GET", "/api/video/direct?" + urllib.parse.urlencode({"dir": server.data_dir()}))
+        self.assertEqual(st, 400)                                   # only folders under edits/
+        st, j, _, _ = self.req("POST", "/api/video/direct/revise", {"dir": folder, "change": ""})
+        self.assertEqual(st, 400)
+        st, j, _, _ = self.req("POST", "/api/video/direct/revise", {"dir": folder, "change": "bigger captions",
+                                                                     "session_id": "not a session!"})
+        self.assertEqual(st, 200, j)
+        self.events(j["job"])
+        prompt = self.fake_calls()[-1]["prompt"]
+        self.assertIn("bigger captions", prompt)
+        self.assertIn(folder, prompt)
+        self.assertIn("Do not render", prompt)
+        self.assertNotIn("--resume", self.fake_calls()[-1]["args"])   # a bad session id is dropped
+
+    def test_director_steps_read_well(self):
+        self.assertEqual(server.tool_summary("Agent", {"subagent_type": "ig-cut-editor"}),
+                         "Cut editor: picking shots, hook and pacing")
+        self.assertEqual(server.tool_summary("Bash", {"command": "python3 ~/.claude/skills/ig-direct/direct.py storyboard /x --preview"}),
+                         "Rendering the storyboard")
+        self.assertEqual(server.tool_summary("Agent", {"subagent_type": "ig-kweo-reader"}), "Starting helper: ig-kweo-reader")

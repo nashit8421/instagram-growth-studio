@@ -1,6 +1,6 @@
 # Instagram Growth Studio
 
-**26 Claude skills and a one-click app that help you grow an Instagram account for free.**
+**27 Claude skills, seven agents and a one-click app that help you grow an Instagram account for free.**
 Scan your account, find what's going viral in your region and niche, write and score
 Reels, edit your raw video, pick a trending sound, track every post, and get a weekly
 growth plan. Nothing is ever posted for you: these skills write, you post.
@@ -15,7 +15,7 @@ growth plan. Nothing is ever posted for you: these skills write, you post.
 
 | | Original | This fork |
 |---|---|---|
-| Skills | 13 | 26, including `/ig`, a single entry point that runs the rest in order |
+| Skills | 13 | 27, including `/ig`, a single entry point that runs the rest in order |
 | App | none | **IG Studio**: double-click, opens in your browser, everything has a button |
 | Your account | you describe it | `/ig-scan` reads it (through your logged-in [kweo](https://kweo.ai) browser, your data export, screenshots, or the official API) |
 | Results | free-text `log.md` | a real results log, audit in code, per-reel checks at 1h/24h/72h/7d with a diagnosis |
@@ -24,6 +24,7 @@ growth plan. Nothing is ever posted for you: these skills write, you post.
 | Sound | not covered | trending sound picks your account type can actually use |
 | Hooks | scored | scored, then A/B tested with Instagram Trial Reels |
 | Visuals | copy only | carousel and story PNGs, and raw video cut into a captioned 9:16 Reel |
+| Video editing | none | **Claude directs**: a director and four specialist agents plan the hook, cuts, captions, look and sound, show you a scored storyboard, then render |
 | Languages | English only (Hindi/Urdu scripts scored wrong) | any script |
 | Accounts | one | several (yours and clients), kept separate |
 
@@ -70,7 +71,8 @@ private faster-whisper install in `~/.ig-studio`), in the background, with no ad
 | `/ig-audio` | Trending sounds your account can use, matched to your reel | new |
 | `/ig-reel` | Hooks from 26 formulas, scored; script; on-screen text; timed beat sheet | original |
 | `/ig-test` | A/B test two hooks with Trial Reels, with an honest noise check | new |
-| `/ig-edit` | Raw video into a Reel: cut pauses, 9:16, captions, hook card | new |
+| `/ig-direct` | Claude directs the edit: mood, hook, shots, captions, grade, sound. Storyboard first, render on your OK | new |
+| `/ig-edit` | Quick edit: cut pauses, 9:16, captions, hook card | new |
 | `/ig-caption` | The caption, linted against the feed cut and the 5-hashtag cap | original |
 | `/ig-carousel` | Carousel copy, cover first | original |
 | `/ig-render` | Carousel and story PNGs, grid-crop preview, alt text | new |
@@ -90,9 +92,38 @@ private faster-whisper install in `~/.ig-studio`), in the background, with no ad
 | `/ig-account` | Several accounts, each with its own data | new |
 | `/ig-kweo` | Browsing through kweo, read only on Instagram | new |
 
-Two Claude Code agents ship in `agents/`: `ig-growth-coach` (weekly review) and
+Seven Claude Code agents ship in `agents/`: `ig-growth-coach` (weekly review),
 `ig-kweo-reader` (reads Instagram through kweo with read-only tools, so it cannot like,
-follow, comment or post).
+follow, comment or post), and the five-person edit crew below.
+
+## Claude directs your video
+
+Hand over raw footage. Claude acts as the director and fires up a crew:
+
+```
+raw.mov ─► direct.py analyze ─► word-numbered transcript · pauses · frame sheets
+              │
+   Director (Claude) ─► brief: concept, mood, hook, structure, length, loop
+              │
+   ig-cut-editor ─► shots by word range, hook first, filler cut, punch-ins, framing
+              │  then in parallel
+   ├ ig-caption-designer ─► font, size, colours, word highlight, placement per shot, hook text
+   ├ ig-look-designer    ─► colour grade for the mood, vignette, progress bar, cover frame
+   └ ig-sound-designer   ─► voice at -14 LUFS, whooshes on cuts, trending sounds to add in-app
+              │
+   direct.py merge + storyboard ─► real frames rendered with the real captions, zoom and grade
+              │                     + a virality checklist scored out of 100
+   ig-retention-critic ─► watches it like a scroller, sends fixes back, one more round
+              │
+   You approve the storyboard (or say what to change) ─► direct.py render ─► reel.mp4 + cover
+```
+
+The checklist covers what keeps people watching: something to read or hear by 0.4s,
+hook text on frame 1 (the feed thumbnail), the strongest line first, a visual change
+at least every 4.5s, no dead air, captions big and short and clear of the face and the
+Instagram buttons, a payoff and a loop, one ask, and no unlicensed music burned in.
+In IG Studio it is **Create → Video editor → Direct with Claude**. Nothing renders until
+you approve the storyboard, and nothing is ever posted.
 
 ## Safety, plainly
 

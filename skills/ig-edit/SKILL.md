@@ -12,6 +12,9 @@ description: >-
 
 # ig-edit
 
+The quick cut. For a directed edit (mood, cold open, caption design, grade,
+sound, a storyboard to approve first) use /ig-direct.
+
 /ig-reel writes the script. The user shoots it. This turns the recording into
 the file they upload. It runs ffmpeg on their machine. Nothing is uploaded and
 nothing is posted.
@@ -135,18 +138,15 @@ EDITED  ·  reel.mp4
 
 ## Whisper
 
-Not installed by this skill, ever. If none is found the report prints the
-install line and carries on with the script or no captions:
-
-```
-brew install whisper-cpp
-curl -L -o ~/IGStudio/models/ggml-base.en.bin \
-  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
-```
+IG Studio installs it on every start if it is missing (whisper.cpp and the
+multilingual base model on a Mac with Homebrew, a private faster-whisper
+elsewhere). This script never installs anything. With whisper.cpp it asks for
+token-level timing (`--dtw`), which puts word starts within a frame or two.
+`python3 edit.py --whisper-check` says what it found. Without it, captions come
+from `--script` (approximate) or are skipped, and the report says so.
 
 Models are looked for in `$WHISPER_MODEL`, the data folder's `models/`,
-`~/.cache/whisper.cpp` and Homebrew's share folder. Tell the user the line.
-Do not run it for them unless they ask.
+`~/.ig-studio/models`, `~/.cache/whisper.cpp` and Homebrew's share folder.
 
 The data folder is `$IG_DATA_DIR`, else the active account's folder under
 `~/IGStudio/accounts/`, else `~/IGStudio`.

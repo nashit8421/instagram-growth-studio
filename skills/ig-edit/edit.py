@@ -578,11 +578,63 @@ print(json.dumps([{"word": w.word, "start": w.start, "end": w.end}
 }
 
 
+DTW_MODELS = ("tiny", "tiny.en", "base", "base.en", "small", "small.en", "medium", "medium.en",
+              "large.v1", "large.v2", "large.v3", "large.v3.turbo")
+
+
+def dtw_name(model_path):
+    """ggml-base.en.bin -> base.en, the name whisper.cpp's --dtw wants, or None."""
+    name = Path(model_path).name
+    m = re.fullmatch(r"ggml-(.+?)(?:-q\d\w*)?\.bin", name)
+    if not m:
+        return None
+    n = m.group(1).replace("large-v", "large.v").replace("-turbo", ".turbo")
+    return n if n in DTW_MODELS else None
+
+
+def words_from_dtw(data):
+    """whisper.cpp -ojf JSON with t_dtw -> words. A token without a leading
+    space continues the word before it; punctuation sticks to it."""
+    words = []
+    for seg in data.get("transcription") or []:
+        seg_end = (seg.get("offsets") or {}).get("to", 0) / 1000.0
+        for tok in seg.get("tokens") or []:
+            text = tok.get("text") or ""
+            if not text.strip() or text.startswith("[_") or (text.startswith("[") and text.endswith("]")):
+                continue
+            t = tok.get("t_dtw", -1)
+            start = t / 100.0 if isinstance(t, (int, float)) and t >= 0 else (tok.get("offsets") or {}).get("from", 0) / 1000.0
+            if words and (not text.startswith(" ") or re.fullmatch(r"[^\w\s]+", text.strip())):
+                words[-1]["word"] += text.strip()
+                continue
+            if words and words[-1]["end"] is None:
+                words[-1]["end"] = max(words[-1]["start"] + 0.02, start)
+            words.append({"word": text.strip(), "start": start, "end": None, "seg_end": seg_end})
+    for k, w in enumerate(words):
+        if w["end"] is None:
+            nxt = words[k + 1]["start"] if k + 1 < len(words) else w["seg_end"]
+            w["end"] = max(w["start"] + 0.02, min(nxt, w["seg_end"]) if nxt > w["start"] else w["seg_end"])
+        w.pop("seg_end", None)
+    return words
+
+
 def transcribe(t, wav, lang, workdir):
     """Word timings [{word, start, end}] relative to the start of `wav`."""
     if t["kind"] == "whisper.cpp":
         base = Path(workdir) / "whisper"
         language = "en" if ".en." in Path(t["model"]).name else lang
+        dtw = dtw_name(t["model"])
+        if dtw:   # token-level timing: far tighter word starts than the segment-split SRT
+            r = run([t["exe"], "-m", t["model"], "-f", str(wav), "-l", language, "-dtw", dtw, "-nfa",
+                     "-ojf", "-of", str(base), "-np"])
+            js = base.with_suffix(".json")
+            if r.returncode == 0 and js.exists():
+                try:
+                    words = words_from_dtw(json.loads(js.read_text(encoding="utf-8", errors="replace")))
+                    if words:
+                        return words
+                except (ValueError, KeyError, TypeError):
+                    pass
         r = run([t["exe"], "-m", t["model"], "-f", str(wav), "-l", language,
                  "-ml", "1", "-sow", "-osrt", "-of", str(base), "-np"])
         srt = base.with_suffix(".srt")
