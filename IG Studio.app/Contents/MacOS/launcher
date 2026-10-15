@@ -20,6 +20,24 @@ if [ -z "$PY" ]; then
             -e 'if r is "Open python.org" then open location "https://www.python.org/downloads/macos/"' >/dev/null 2>&1
   exit 1
 fi
+# Already running? Just reopen it in the browser. (Double-clicking again
+# otherwise only brings the old Terminal window forward and nothing opens.)
+RUNNING_URL="$("$PY" - "${IG_STUDIO_HOME:-$LOG_DIR}/lock.json" <<'PYEOF' 2>/dev/null
+import json, os, socket, sys
+try:
+    d = json.load(open(sys.argv[1]))
+    os.kill(int(d["pid"]), 0)
+    socket.create_connection(("127.0.0.1", int(d["port"])), timeout=1).close()
+    print("http://127.0.0.1:%d/#t=%s" % (int(d["port"]), d["token"]))
+except Exception:
+    pass
+PYEOF
+)"
+if [ -n "$RUNNING_URL" ]; then
+  open "$RUNNING_URL"
+  exit 0
+fi
+
 if [ ! -f "$SERVER" ]; then
   osascript -e 'display dialog "IG Studio.app must stay in the IG Studio folder, next to the app folder." with title "IG Studio" buttons {"OK"} with icon stop' >/dev/null 2>&1
   exit 1

@@ -1028,8 +1028,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
     sys_version = ""
 
     def log_message(self, fmt, *args):  # quiet; never log query strings (tokens, paths)
+        line = "%s %s %s" % (time.strftime("%H:%M:%S"), self.command, self.path.split("?")[0].split("#")[0])
         if os.environ.get("IG_STUDIO_DEBUG"):
-            sys.stderr.write("[ig-studio] %s %s\n" % (self.command, self.path.split("?")[0]))
+            sys.stderr.write("[ig-studio] %s\n" % line)
+        try:  # small rolling access log for troubleshooting: paths only, never tokens
+            lp = os.path.join(studio_home(), "access.log")
+            if os.path.exists(lp) and os.path.getsize(lp) > 256 * 1024:
+                os.replace(lp, lp + ".1")
+            with open(lp, "a", encoding="utf-8") as f:
+                f.write(line + " " + " ".join(str(a) for a in args[1:2]) + "\n")
+        except OSError:
+            pass
 
     # ---- responses
     def _common_headers(self):
