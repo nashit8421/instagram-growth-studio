@@ -71,10 +71,18 @@ DISALLOWED_TOOLS = [
 ]
 
 KWEO_URL = "http://127.0.0.1:7333/mcp"
-KWEO_RE = re.compile(
-    r'claude mcp add kweo --transport http http://127\.0\.0\.1:7333/mcp '
-    r'--header (?:"Authorization: Bearer ([A-Za-z0-9._~+/=-]{8,512})"'
-    r"|'Authorization: Bearer ([A-Za-z0-9._~+/=-]{8,512})')")
+_KWEO_TOK = r"([A-Za-z0-9._~+/=-]{8,512})"
+_KWEO_HDR = r"""--header (?:"Authorization: Bearer %s"|'Authorization: Bearer %s')""" % (_KWEO_TOK, _KWEO_TOK)
+_KWEO_URL_RE = r"http://127\.0\.0\.1:7333/mcp"
+KWEO_RES = [
+    # what kweo's Connect panel shows (optionally with --scope user)
+    re.compile(r"claude mcp add kweo --transport http %s (?:--scope user )?%s(?: --scope user)?" % (_KWEO_URL_RE, _KWEO_HDR)),
+    # the order kweo itself runs it in
+    re.compile(r"claude mcp add --transport http (?:--scope user )?%s kweo %s" % (_KWEO_HDR, _KWEO_URL_RE)),
+    # kweo's JSON config snippet
+    re.compile(r'\{ ?"mcpServers": ?\{ ?"kweo": ?\{ ?"type": ?"http", ?"url": ?"%s", ?'
+               r'"headers": ?\{ ?"Authorization": ?"Bearer %s" ?\} ?\} ?\} ?\}' % (_KWEO_URL_RE, _KWEO_TOK)),
+]
 
 TEXT_FILES = ("plan.md", "trends.md", "voice.md", "account.md", "swipe.md", "log.md", "engaged.md")
 PREVIEW_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".mov", ".m4v", ".ics", ".md", ".txt", ".srt", ".zip"}
@@ -379,18 +387,28 @@ def unique_path(folder, name):
 
 
 def validate_kweo_command(cmd):
-    """Return the bearer token if cmd is exactly kweo's connect command, else None."""
+    """Return the bearer token if cmd is kweo's connect command (or its JSON
+    config snippet), else None. Tolerates what copy-paste does to it: smart
+    quotes, line wraps, extra spaces, a leading "! ". Anything else, including
+    a second command chained on, is refused. Only the token is used; the
+    command itself is never run."""
     if not isinstance(cmd, str):
         return None
     cmd = cmd.strip()
+    for a, b in (("\u201c", '"'), ("\u201d", '"'), ("\u2018", "'"), ("\u2019", "'"), ("\u00a0", " ")):
+        cmd = cmd.replace(a, b)
     if cmd.startswith("! "):
         cmd = cmd[2:].strip()
-    if any(c in cmd for c in "\n\r\t;&|`$<>(){}\\"):
+    if any(c in cmd for c in ";&|`$<>()\\"):
         return None
-    m = KWEO_RE.fullmatch(cmd)
-    if not m:
-        return None
-    return m.group(1) or m.group(2)
+    # A newline that isn't just a soft wrap (one command over several lines) is refused below
+    # by the full match, since anything after the command makes it fail.
+    cmd = re.sub(r"\s+", " ", cmd).strip()
+    for rx in KWEO_RES:
+        m = rx.fullmatch(cmd)
+        if m:
+            return next(g for g in m.groups() if g)
+    return None
 
 
 def check_id(value, what="id"):
@@ -2220,6 +2238,32 @@ def api_kweo(h, body):
     if r["json"] is None:
         raise ApiError(500, friendly_error(r["err"], r["out"]))
     return r["json"]
+
+
+KWEO_CONNECT_LINK = "kweo://connect/claude-code?app=IG%20Studio"
+
+
+@route("POST", "/api/kweo/one-click")
+def api_kweo_one_click(h, body):
+    """Ask kweo to connect itself to Claude Code. kweo shows its own confirm
+    dialog and runs `claude mcp add` with its token, so the token never passes
+    through IG Studio. Older kweo versions don't know the link: then
+    launched is False and the page falls back to the toggle instructions."""
+    if os.environ.get("IG_STUDIO_NO_OPEN"):
+        return {"launched": False, "skipped": True}
+    try:
+        if sys.platform == "darwin":
+            r = subprocess.run(["open", KWEO_CONNECT_LINK], capture_output=True, text=True, timeout=15)
+            ok = r.returncode == 0
+        elif IS_WIN:
+            os.startfile(KWEO_CONNECT_LINK)  # noqa: S606 (fixed, local URL scheme)
+            ok = True
+        else:
+            r = subprocess.run(["xdg-open", KWEO_CONNECT_LINK], capture_output=True, text=True, timeout=15)
+            ok = r.returncode == 0
+    except (OSError, subprocess.SubprocessError, AttributeError):
+        ok = False
+    return {"launched": ok}
 
 
 @route("POST", "/api/kweo/connect")

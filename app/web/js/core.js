@@ -455,14 +455,14 @@
         ["Read only.", " It can open and read pages, nothing else. It can't like, follow, comment or post."]
       ];
       var steps = installed
-        ? [["In kweo, press ", "⌘J", ", open the model picker and choose ", "Connect a model", "."],
-           ["Turn on ", "Let Claude control kweo", " and copy the command it shows.", "", ""],
-           ["Paste it on IG Studio's ", "Account", " screen. Done: scans and checks now run through kweo.", "", ""]]
+        ? [["Click ", "Connect kweo", " below.", "", ""],
+           ["kweo asks you to confirm. Click ", "Connect", " there.", "", ""],
+           ["That's it. IG Studio notices on its own, no restart.", "", "", "", ""]]
         : [["Download kweo from ", "kweo.ai", " and log in to Instagram in it, like any browser.", "", ""],
-           ["In kweo, press ", "⌘J", ", choose ", "Connect a model", ", turn on Let Claude control kweo, and copy the command."],
-           ["Paste it on IG Studio's ", "Account", " screen. IG Studio connects to kweo on this computer only.", "", ""]];
+           ["Come back here and click ", "Connect kweo", ". kweo asks you to confirm once.", "", ""],
+           ["Done. IG Studio and kweo talk on this computer only.", "", "", "", ""]];
       var main = installed
-        ? h("button", { class: "btn primary sm", type: "button", text: "Connect kweo", onclick: function () { el.hidden = true; IG.go("account"); } })
+        ? null
         : h("a", { class: "btn primary sm", href: "https://kweo.ai", target: "_blank", rel: "noopener noreferrer", text: "Get kweo (free)" });
       var later = h("button", { class: "btn ghost sm", type: "button", text: "Not now", onclick: function () {
         try { localStorage.setItem(KWEO_SNOOZE, String(Date.now() + 7 * 864e5)); } catch (e) { /* storage blocked */ }
@@ -480,7 +480,9 @@
           h("div", { class: "row-btns" }, main, later)),
         h("div", { class: "kweo-cols" },
           h("div", null, h("h3", { text: "Why kweo" }), whyList),
-          h("div", null, h("h3", { text: installed ? "How to connect" : "How it connects" }), stepList)),
+          h("div", null, h("h3", { text: installed ? "How to connect" : "How it connects" }), stepList,
+            installed && IG.kweoConnectBox ? h("div", { style: { marginTop: "12px" } }, IG.kweoConnectBox(function () {
+              setTimeout(function () { el.hidden = true; }, 2500); IG.loadStatus(); })) : null)),
         h("p", { class: "small muted", text: "Optional. Without kweo, IG Studio still works with your Instagram data download or screenshots." })));
       el.hidden = false;
     }).catch(function () { el.hidden = true; });

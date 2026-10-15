@@ -478,6 +478,26 @@ class KweoTests(Base):
         for b in bad:
             self.assertIsNone(v(b), repr(b))
 
+    def test_validation_tolerates_copy_paste(self):
+        v = server.validate_kweo_command
+        tok = "abcDEF123._-~+/="
+        smart = self.GOOD.replace('"Authorization', "\u201cAuthorization").replace('=" ', "=\u201d ")
+        if smart.endswith('"'):
+            smart = smart[:-1] + "\u201d"
+        self.assertEqual(v(smart), tok)
+        self.assertEqual(v(self.GOOD.replace(" --header", "\n  --header")), tok)        # soft wrap
+        self.assertEqual(v(self.GOOD.replace("  ", " ").replace(" http://", "   http://")), tok)
+        self.assertEqual(v(self.GOOD + " --scope user"), tok)
+        self.assertEqual(v('claude mcp add --transport http --scope user --header "Authorization: Bearer %s" kweo http://127.0.0.1:7333/mcp' % tok), tok)
+        self.assertEqual(v('{\n  "mcpServers": {\n    "kweo": {\n      "type": "http",\n      "url": "http://127.0.0.1:7333/mcp",\n'
+                           '      "headers": {\n        "Authorization": "Bearer %s"\n      }\n    }\n  }\n}' % tok), tok)
+        self.assertIsNone(v('{"mcpServers": {"kweo": {"type": "http", "url": "http://evil:7333/mcp", "headers": {"Authorization": "Bearer %s"}}}}' % tok))
+
+    def test_one_click_is_safe_in_tests(self):
+        st, j, _, _ = self.req("POST", "/api/kweo/one-click", {})
+        self.assertEqual(st, 200)
+        self.assertFalse(j["launched"])
+
     def test_connect_endpoint_runs_arg_list(self):
         before = len(self.fake_calls())
         st, j, _, _ = self.req("POST", "/api/kweo/connect", {"command": self.GOOD + " ; echo pwned"})

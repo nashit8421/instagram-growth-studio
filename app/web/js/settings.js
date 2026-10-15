@@ -65,7 +65,7 @@
         IG.get("/api/kweo").then(function (k) {
           IG.clear(kweoItemWrap).appendChild(item(!!k.ready, "kweo browser",
             h("div", { class: "stack-sm" }, h("div", { class: "d", text: IG.kweoText(k) }),
-              !k.ready && k.app && (k.server === "auth" || k.server === "open") ? IG.kweoConnectBox(function () { IG.toast("Restart IG Studio to use kweo"); }) : null)));
+              !k.ready && k.app && (k.server === "auth" || k.server === "open") ? IG.kweoConnectBox() : null)));
         }).catch(function (e) { IG.clear(kweoItemWrap).appendChild(item(false, "kweo browser", e.message)); });
 
         view.appendChild(IG.card("Your data", "Everything IG Studio and the skills write lives here, on this computer.",

@@ -16,26 +16,79 @@
   };
 
   /* Paste-the-kweo-command box (also used in Settings). */
+  /* One-click kweo connect. kweo connects itself to Claude Code (its own confirm
+     dialog, its own `claude mcp add`); IG Studio just asks and then watches until
+     the connection shows up. Copy-paste stays as a last resort. */
   IG.kweoConnectBox = function (onDone) {
+    var out = h("div", { class: "stack-sm" });
+    var btn = IG.btn("Connect kweo", { cls: "primary" });
+    var polling = null;
+    function stop() { if (polling) { clearInterval(polling); polling = null; } }
+    function watch(seconds) {
+      stop();
+      var until = Date.now() + seconds * 1000;
+      polling = setInterval(function () {
+        if (!document.body.contains(btn)) { stop(); return; }
+        IG.get("/api/kweo").then(function (k) {
+          if (k.ready) {
+            stop();
+            btn.disabled = true;
+            IG.clear(out).appendChild(IG.note("ok", "kweo is connected. IG Studio can now read Instagram through it."));
+            IG.toast("kweo connected", "ok");
+            if (onDone) onDone(k);
+          } else if (Date.now() > until) {
+            stop(); btn.disabled = false; btn.textContent = "Try again";
+          }
+        }).catch(function () { /* keep waiting */ });
+      }, 2000);
+    }
+    function showToggleHelp(lead) {
+      IG.clear(out).appendChild(IG.note("info", lead));
+      out.appendChild(h("ol", { class: "kweo-steps" },
+        h("li", null, "In kweo, press ", h("strong", { text: "⌘J" }), " and open ", h("strong", { text: "Connect a model" }), "."),
+        h("li", null, "Turn ", h("strong", { text: "Let Claude control kweo" }), " on. If it is already on, turn it off and on again."),
+        h("li", { text: "kweo connects itself. This page notices within a few seconds." })));
+      out.appendChild(pasteFallback());
+    }
+    btn.addEventListener("click", function () {
+      btn.disabled = true; btn.textContent = "Waiting for kweo…";
+      IG.post("/api/kweo/one-click").then(function (r) {
+        if (r.launched) {
+          IG.clear(out).appendChild(IG.note("info", "Switch to kweo and click Connect in the dialog it shows. This page updates by itself."));
+          setTimeout(function () {
+            if (polling && !btn.disabled) return;
+            if (polling) showToggleHelp("No dialog in kweo? Your kweo may be older. Do this instead:");
+          }, 12000);
+        } else {
+          showToggleHelp("Do this in kweo (takes 10 seconds):");
+        }
+        watch(180);
+      }, function (e) { btn.disabled = false; btn.textContent = "Connect kweo"; IG.clear(out).appendChild(IG.note("bad", e.message)); });
+    });
+    return h("div", { class: "stack-sm" },
+      h("div", { class: "row" }, btn, h("span", { class: "small muted", text: "kweo asks you to confirm, then connects itself. Your kweo key never passes through IG Studio." })),
+      out);
+  };
+
+  function pasteFallback() {
     var ta = IG.textarea("kweo_cmd", { rows: 3, spellcheck: "false", autocomplete: "off", placeholder: 'claude mcp add kweo --transport http http://127.0.0.1:7333/mcp --header "Authorization: Bearer …"' });
     ta.classList.add("mono");
-    var out = h("div");
+    var msg = h("div");
     var form = h("form", { class: "stack-sm" },
-      IG.field("Paste the command from kweo", ta, "In kweo press ⌘J → model picker → Connect a model, turn on “Let Claude control kweo”, then copy the command it shows."),
-      h("div", { class: "row" }, IG.btn("Connect kweo", { cls: "primary", type: "submit" }), h("span", { class: "small muted", text: "Checked strictly and run without a shell. The token is not stored by IG Studio." })),
-      out);
+      IG.field("Paste the command kweo shows", ta, "In ⌘J → Connect a model, copy the command under the toggle."),
+      h("div", { class: "row" }, IG.btn("Connect with this command", { type: "submit" })),
+      msg);
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       IG.busy(form.querySelector("button"), function () {
         return IG.post("/api/kweo/connect", { command: ta.value }).then(function () {
           ta.value = "";
-          IG.clear(out).appendChild(IG.note("ok", "kweo is registered with Claude Code. Restart IG Studio (Settings → Quit, then open it again) so new Claude runs pick it up."));
-          if (onDone) onDone();
-        }, function (err) { IG.clear(out).appendChild(IG.note("bad", err.message)); });
+          IG.clear(msg).appendChild(IG.note("ok", "Done. kweo is connected to Claude Code."));
+        }, function (err) { IG.clear(msg).appendChild(IG.note("bad", err.message)); });
       });
     });
-    return form;
-  };
+    return h("details", { class: "kweo-paste" }, h("summary", { text: "Still stuck? Paste the command instead" }), form);
+  }
 
   function sourcePanel(kind, handleInput, refresh) {
     var box = h("div", { class: "stack-sm" });
