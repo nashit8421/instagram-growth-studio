@@ -1,13 +1,25 @@
 {
-  "name": "instagram-agent",
-  "description": "Thirteen Claude skills that run an Instagram account: Reels off 26 hook formulas with a scored hook and a timed beat sheet, a research skill that finds what is working in your niche and ranks it by outlier multiple, captions linted against the feed truncation, carousels, stories, profile score, weekly plan, comments, replies, DMs, repurposing, audits, and a humanizer that strips the AI fingerprint before anything ships.",
-  "version": "1.0.0",
+  "name": "instagram-growth-studio",
+  "description": "26 Claude skills and a local app for growing an Instagram account for free: account scan, region and niche trends, scored and A/B-tested reel hooks, raw video to reel, trending sounds, per-post tracking, a weekly growth coach, carousels, captions, a humanizer and more. Nothing is posted for you. Built on Jake Schincariol's instagram-agent-skill.",
+  "version": "2.0.0",
   "author": {
-    "name": "Jake Schincariol",
-    "url": "https://opusjake.ai"
+    "name": "nashit8421",
+    "url": "https://github.com/nashit8421"
   },
-  "homepage": "https://github.com/Jakeschincariol/instagram-agent-skill",
-  "repository": "https://github.com/Jakeschincariol/instagram-agent-skill",
+  "homepage": "https://github.com/nashit8421/instagram-growth-studio",
+  "repository": "https://github.com/nashit8421/instagram-growth-studio",
   "license": "MIT",
-  "keywords": ["instagram", "reels", "content", "writing", "humanizer", "social", "marketing"]
+  "keywords": [
+    "content",
+    "growth",
+    "humanizer",
+    "instagram",
+    "kweo",
+    "marketing",
+    "reels",
+    "reels-editing",
+    "social",
+    "trends",
+    "writing"
+  ]
 }

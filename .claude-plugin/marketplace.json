@@ -1,18 +1,18 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "instagram-agent-skill",
-  "description": "The Instagram agent skill pack for Claude",
+  "name": "instagram-growth-studio",
+  "description": "Instagram Growth Studio: an extended fork of Jake Schincariol's instagram-agent-skill",
   "owner": {
-    "name": "Jake Schincariol",
-    "url": "https://opusjake.ai"
+    "name": "nashit8421",
+    "url": "https://github.com/nashit8421"
   },
   "plugins": [
     {
-      "name": "instagram-agent",
-      "description": "Thirteen Claude skills that run an Instagram account, including a scored hook panel, a viral research skill, a caption linter and a humanizer.",
+      "name": "instagram-growth-studio",
+      "description": "26 Claude skills and a local app for growing an Instagram account for free: account scan, region and niche trends, scored and A/B-tested reel hooks, raw video to reel, trending sounds, per-post tracking, a weekly growth coach, carousels, captions, a humanizer and more. Nothing is posted for you. Built on Jake Schincariol's instagram-agent-skill.",
       "source": "./",
       "category": "productivity",
-      "homepage": "https://github.com/Jakeschincariol/instagram-agent-skill"
+      "homepage": "https://github.com/nashit8421/instagram-growth-studio"
     }
   ]
 }

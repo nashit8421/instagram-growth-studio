@@ -1,87 +1,106 @@
-# The Instagram agent skill
+# Instagram Growth Studio
 
-Thirteen Claude skills that run an Instagram account. Free, MIT, no signup, no
-API key, nothing to connect.
+**26 Claude skills and a one-click app that help you grow an Instagram account for free.**
+Scan your account, find what's going viral in your region and niche, write and score
+Reels, edit your raw video, pick a trending sound, track every post, and get a weekly
+growth plan. Nothing is ever posted for you: these skills write, you post.
 
-One of them writes your Reels off 26 hook formulas and scores the hook before
-you waste a take on it. One goes and finds the reels that are actually working
-in your niche and ranks them by how far each beat its own account. One writes
-the caption and shows you exactly what the feed shows before the "... more".
-One scores your profile out of 100 and rewrites what lost points. One plans the
-week.
+> **Built on [instagram-agent-skill](https://github.com/Jakeschincariol/instagram-agent-skill)
+> by [Jake Schincariol](https://opusjake.ai).** His 13 skills, hook formulas, hook scorer,
+> humanizer and research are the foundation of this repo, and his full commit history is
+> kept here. This fork fixes a few bugs in the original (bug fixes offered back upstream)
+> and adds 13 skills plus a desktop app on top. If you only want the original pack, use his repo.
 
-And one is the humanizer, which is the reason the rest are usable. It strips
-the em dashes, the slop vocabulary and the invisible watermark characters out
-of a draft, then scores what is left against a five-check panel before you ever
-see it.
+## What's different from the original
 
-**Nothing gets posted until you say yes.** These skills write. You post.
+| | Original | This fork |
+|---|---|---|
+| Skills | 13 | 26, including `/ig`, a single entry point that runs the rest in order |
+| App | none | **IG Studio**: double-click, opens in your browser, everything has a button |
+| Your account | you describe it | `/ig-scan` reads it (through your logged-in [kweo](https://kweo.ai) browser, your data export, screenshots, or the official API) |
+| Results | free-text `log.md` | a real results log, audit in code, per-reel checks at 1h/24h/72h/7d with a diagnosis |
+| Growth | weekly plan | a growth coach that finds your one bottleneck and ranks this week's actions |
+| Trends | your niche | your region **and** your niche, blended into ideas, with brand-safety filtering |
+| Sound | not covered | trending sound picks your account type can actually use |
+| Hooks | scored | scored, then A/B tested with Instagram Trial Reels |
+| Visuals | copy only | carousel and story PNGs, and raw video cut into a captioned 9:16 Reel |
+| Languages | English only (Hindi/Urdu scripts scored wrong) | any script |
+| Accounts | one | several (yours and clients), kept separate |
 
-## Install
+## Quick start
 
-Paste this into Claude:
+**The app (easiest).** Download this repo, open `app/`, and double-click
+**IG Studio.app** (Mac), **IG Studio.bat** (Windows) or **IG Studio.desktop** (Linux).
+It needs Python 3.9+ and [Claude Code](https://claude.com/claude-code) for the AI parts.
+See [app/README.md](app/README.md).
 
-```
-https://github.com/Jakeschincariol/instagram-agent-skill
-
-Install this skill, then confirm /ig-reel works.
-```
-
-Or do it yourself, in Claude Code:
+**The skills, in Claude Code.**
 
 ```bash
-git clone https://github.com/Jakeschincariol/instagram-agent-skill.git
-cp -r instagram-agent-skill/skills/ig-* ~/.claude/skills/
+git clone https://github.com/nashit8421/instagram-growth-studio.git
+cp -r instagram-growth-studio/skills/ig* ~/.claude/skills/
+cp instagram-growth-studio/platform.json ~/.claude/skills/
+cp instagram-growth-studio/agents/*.md ~/.claude/agents/
 ```
 
-Or as a plugin:
+Then type `/ig`. It scans your account, sets you up, and walks you through each step,
+only stopping when it needs your input or approval.
 
-```
-/plugin marketplace add Jakeschincariol/instagram-agent-skill
-/plugin install instagram-agent
-```
+Optional: [kweo](https://kweo.ai) lets the skills read your Instagram through the browser
+you're already logged into, with no API keys. `/ig-kweo` shows how to connect it.
+`ffmpeg` is needed for video editing and Chrome for carousel images.
 
-Project-local instead of global: copy the same folders into your repo's
-`.claude/skills/`. No Claude Code at all? Paste any single `SKILL.md` at the top
-of a chat and it runs as a mode. You lose the five Python tools, which is most
-of the point of `/ig-reel` and `/ig-human`, but the rest works.
+## All the skills
 
-Then spend ten minutes on `templates/voice.md`. Copy it to
-`~/.claude/instagram/voice.md` (or the active account's folder, see
-`/ig-account`) and fill it in, or send Claude three of your own
-reels and say "write my voice.md from these". Every skill reads that file. It
-matters more here than on other platforms, because you have to say the words
-out loud.
+**Start here:** `/ig` runs everything in order.
 
-## The thirteen
+| skill | what it does | from |
+| --- | --- | --- |
+| `/ig-scan` | Reads your account and works out niche, size, cadence and what performs | new |
+| `/ig-grow` | Weekly growth coach: follower check-in, the one bottleneck, this week's actions | new |
+| `/ig-trends` | What's viral in your region and niche, blended into "virality blast" ideas | new |
+| `/ig-audio` | Trending sounds your account can use, matched to your reel | new |
+| `/ig-reel` | Hooks from 26 formulas, scored; script; on-screen text; timed beat sheet | original |
+| `/ig-test` | A/B test two hooks with Trial Reels, with an honest noise check | new |
+| `/ig-edit` | Raw video into a Reel: cut pauses, 9:16, captions, hook card | new |
+| `/ig-caption` | The caption, linted against the feed cut and the 5-hashtag cap | original |
+| `/ig-carousel` | Carousel copy, cover first | original |
+| `/ig-render` | Carousel and story PNGs, grid-crop preview, alt text | new |
+| `/ig-story` | The daily story sequence and stickers | original |
+| `/ig-human` | Strips AI-sounding words and invisible characters, scores the draft | original |
+| `/ig-ledger` | Results log for every post, audit in code | new |
+| `/ig-perf` | Follows a reel through its first week and says how to fix it | new |
+| `/ig-audit` | Post-mortem on what you posted | original |
+| `/ig-plan` | The week: what, which format, when, who to engage | original |
+| `/ig-calendar` | The plan as Google Calendar reminders (asks first) or an .ics file | new |
+| `/ig-profile` | Profile scored out of 100, rewritten in fix-first order | original |
+| `/ig-viral` | Outlier reels in your niche, ranked, as a swipe file | original |
+| `/ig-repurpose` | One long video or podcast into a week of posts | original |
+| `/ig-comment` | Comments on other people's posts that read as a person | original |
+| `/ig-reply` | Replies under your own posts, sorted by value | original |
+| `/ig-dm` | Keyword delivery, first message, collab pitch, two follow-ups | original |
+| `/ig-account` | Several accounts, each with its own data | new |
+| `/ig-kweo` | Browsing through kweo, read only on Instagram | new |
 
-| command | what it does |
-| --- | --- |
-| `/ig-reel` | One idea into a Reel. Three hooks from [26 formulas](skills/ig-reel/hooks.json), scored, then the script, the on-screen text and a timed beat sheet. |
-| `/ig-viral` | Goes and finds what is working in your niche, ranks it by multiple over each account's own median, names the formula, writes the swipe file. |
-| `/ig-caption` | The caption, linted. Shows you the 125 characters the feed actually shows before the tap. |
-| `/ig-carousel` | Swipe posts. The cover that earns the swipe, slide copy, and the 1080x1350 files. |
-| `/ig-story` | The daily story sequence, which sticker does which job, and the DM funnel that starts with them moving first. |
-| `/ig-profile` | Scores your profile against a [12-part rubric](skills/ig-profile/rubric.json) out of 100, then rewrites in fix-first order. |
-| `/ig-plan` | The week. What to post, which format, when, and the 10 accounts to engage with. |
-| `/ig-human` | The humanizer. Two scripts that actually run. See below. |
-| `/ig-comment` | Comments on other people's posts. Nine types, picked by what the post actually is. Never "🔥🔥🔥". |
-| `/ig-reply` | The thread under your own post. Sorts into keyword / lead / substance / question / support / noise, then writes in that order. |
-| `/ig-dm` | The keyword delivery, the first message, the collab pitch, and the two follow-ups. Two. |
-| `/ig-repurpose` | One video, podcast or newsletter into a week of reels and carousels that each stand alone. |
-| `/ig-audit` | Post-mortem on what you already posted. Ranks by outlier multiple and sends per reach, not views. |
+Two Claude Code agents ship in `agents/`: `ig-growth-coach` (weekly review) and
+`ig-kweo-reader` (reads Instagram through kweo with read-only tools, so it cannot like,
+follow, comment or post).
 
-## Extensions
+## Safety, plainly
 
-Four sibling skills plug into this pack. Install them next to the others in
-`~/.claude/skills/`.
+- Nothing is posted, liked, followed, commented or sent. Every skill ends in text or
+  files you post yourself. Automating those actions breaks Instagram's Terms and gets
+  accounts restricted.
+- Browsing Instagram is read only, at human pace, in your own logged-in session.
+- Everything runs on your machine. IG Studio listens on 127.0.0.1 only, behind a
+  per-launch token.
+- No one can promise a reel goes viral. These tools improve the odds and measure what
+  works for your account.
 
-| skill | what it does |
-| --- | --- |
-| `/ig-ledger` | Logs every post and its numbers to `posts.csv` in the active account's data folder. `audit.py` does the `/ig-audit` maths. |
-| `/ig-test` | Runs a hook-against-hook test as two Trial Reels and reports which one won. |
-| `/ig-render` | Turns approved carousel and story copy into the PNGs you upload. |
-| `/ig-account` | Several accounts (yours, clients) each with its own voice, brand, ledger and swipe file. Every skill works on the active one. |
+---
+
+*The sections below are from the original pack's README by Jake Schincariol, updated where
+the fixes changed behaviour.*
 
 ## The five tools that actually run
 
@@ -332,30 +351,18 @@ Reel length, each with the date it was last checked and a source where there
 is one. `caption.py` reads its limits from it. When Instagram moves a number,
 change it there.
 
-## Files
-
-```
-skills/ig-reel/hooks.json          26 hook formulas: template, example, on-screen line,
-                                   what it is for, how it gets ruined, and a match regex
-skills/ig-reel/hookscore.py        the five-property hook panel
-skills/ig-reel/beats.py            script to timed beat sheet
-skills/ig-caption/caption.py       the truncation preview and the caption linter
-skills/ig-human/slop.json          the lexicon: 154 terms, 18 invisible classes, 16 tells
-skills/ig-human/humanize.py        the three cleaning passes
-skills/ig-human/detect.py          the five-check panel
-skills/ig-viral/swipe.py           outlier ranking and formula classification
-skills/ig-profile/rubric.json      the 100-point profile score
-platform.json                      dated platform numbers the scripts read
-templates/voice.md                 your voice profile. Fill this in first.
-```
-
 ## Credit
 
-Made by Jake Schincariol, [opusjake.ai](https://opusjake.ai).
-
-Sibling repo, same idea for a different platform:
+The original 13 skills, the hook formulas, the hook scorer, the humanizer, the beat
+timer, the caption linter, the swipe-file ranking and the measurement work are by
+**Jake Schincariol**, [opusjake.ai](https://opusjake.ai):
+[instagram-agent-skill](https://github.com/Jakeschincariol/instagram-agent-skill).
+His sibling repo for LinkedIn:
 [linkedin-agent-skill](https://github.com/Jakeschincariol/linkedin-agent-skill).
+
+The fixes, the 13 new skills, the agents and IG Studio are by
+[nashit8421](https://github.com/nashit8421), built with Claude Code.
 
 ## License
 
-MIT. Take it, change it, ship it.
+MIT, same as the original. See [LICENSE](LICENSE).
