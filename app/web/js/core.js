@@ -445,17 +445,43 @@
       IG.clear(el);
       if (k.ready) { el.hidden = true; return; }
       var installed = !!k.app;
-      var msg = installed
-        ? "kweo is installed but not connected yet. Connect it so IG Studio can read your Instagram without API keys."
-        : "Get kweo, the free AI browser. IG Studio uses it to read your Instagram where you're already logged in, so you never need API keys.";
+      var title = installed ? "Connect kweo to finish setup" : "Install kweo so IG Studio can see your Instagram";
+      var lead = installed
+        ? "kweo is installed. One more step and IG Studio can read your account for you."
+        : "kweo is a free AI browser. IG Studio uses it to read your Instagram the way you see it, so you never type numbers in or set up API keys.";
+      var why = [
+        ["No API keys, no Meta developer account.", " It uses the Instagram login you already have in kweo. IG Studio never sees your password."],
+        ["Your real account, read for you.", " Profile, posts, views and insights come in automatically for the account scan, post checks and trend research. No screenshots or copying numbers."],
+        ["Read only.", " It can open and read pages, nothing else. It can't like, follow, comment or post."]
+      ];
+      var steps = installed
+        ? [["In kweo, press ", "⌘J", ", open the model picker and choose ", "Connect a model", "."],
+           ["Turn on ", "Let Claude control kweo", " and copy the command it shows.", "", ""],
+           ["Paste it on IG Studio's ", "Account", " screen. Done: scans and checks now run through kweo.", "", ""]]
+        : [["Download kweo from ", "kweo.ai", " and log in to Instagram in it, like any browser.", "", ""],
+           ["In kweo, press ", "⌘J", ", choose ", "Connect a model", ", turn on Let Claude control kweo, and copy the command."],
+           ["Paste it on IG Studio's ", "Account", " screen. IG Studio connects to kweo on this computer only.", "", ""]];
       var main = installed
         ? h("button", { class: "btn primary sm", type: "button", text: "Connect kweo", onclick: function () { el.hidden = true; IG.go("account"); } })
-        : h("a", { class: "btn primary sm", href: "https://kweo.ai", target: "_blank", rel: "noopener noreferrer", text: "Get kweo" });
+        : h("a", { class: "btn primary sm", href: "https://kweo.ai", target: "_blank", rel: "noopener noreferrer", text: "Get kweo (free)" });
       var later = h("button", { class: "btn ghost sm", type: "button", text: "Not now", onclick: function () {
         try { localStorage.setItem(KWEO_SNOOZE, String(Date.now() + 7 * 864e5)); } catch (e) { /* storage blocked */ }
         el.hidden = true;
       } });
-      el.appendChild(h("div", { class: "note info" }, h("span", { text: msg }), h("div", { class: "row-btns" }, main, later)));
+      var whyList = h("ul", { class: "kweo-why" });
+      why.forEach(function (w) { whyList.appendChild(h("li", null, h("strong", { text: w[0] }), w[1])); });
+      var stepList = h("ol", { class: "kweo-steps" });
+      steps.forEach(function (st) {
+        stepList.appendChild(h("li", null, st[0], h("strong", { text: st[1] }), st[2], st[3] ? h("strong", { text: st[3] }) : "", st[4] || ""));
+      });
+      el.appendChild(h("section", { class: "kweo-card" },
+        h("div", { class: "kweo-head" },
+          h("div", null, h("h2", { text: title }), h("p", { class: "sub", text: lead })),
+          h("div", { class: "row-btns" }, main, later)),
+        h("div", { class: "kweo-cols" },
+          h("div", null, h("h3", { text: "Why kweo" }), whyList),
+          h("div", null, h("h3", { text: installed ? "How to connect" : "How it connects" }), stepList)),
+        h("p", { class: "small muted", text: "Optional. Without kweo, IG Studio still works with your Instagram data download or screenshots." })));
       el.hidden = false;
     }).catch(function () { el.hidden = true; });
   };

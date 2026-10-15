@@ -493,3 +493,14 @@ details.more[open] > summary::before { content: "▾ "; }
 .install-banner .note { align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .install-banner .note span { flex: 1 1 280px; }
 .install-banner .row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* kweo card */
+.kweo-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; display: grid; gap: 14px; }
+.kweo-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.kweo-head h2 { font-size: 17px; margin: 0 0 4px; }
+.kweo-head .sub { margin: 0; max-width: 62ch; }
+.kweo-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.kweo-cols h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+.kweo-why, .kweo-steps { margin: 0; padding-left: 20px; display: grid; gap: 7px; font-size: 14px; line-height: 1.45; }
+.kweo-card .small.muted { margin: 0; }
+@media (max-width: 720px) { .kweo-cols { grid-template-columns: 1fr; } }
