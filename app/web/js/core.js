@@ -378,7 +378,7 @@
   IG.screen = function (id, def) { IG.screens[id] = def; if (IG.order.indexOf(id) < 0) IG.order.push(id); };
   /* Screens that share a tab bar (Results: account, posts, growth, trends). */
   IG.groups = {
-    results: { title: "Results", tabs: [["account", "Account"], ["posts", "Posts"], ["growth", "Growth"], ["trends", "Trends & sound"]] }
+    results: { title: "Results", tabs: [["account", "Account"], ["posts", "Posts"], ["growth", "Growth"], ["trends", "Viral & trends"]] }
   };
   IG.hashFor = function (id, params) {
     var q = params ? IG.q(params) : "";

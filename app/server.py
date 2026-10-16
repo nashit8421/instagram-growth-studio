@@ -733,8 +733,10 @@ def system_context():
         "markdown), mention their full absolute paths so the app can preview them. Keep replies short and "
         "scannable: short paragraphs, lists, and fenced blocks only for copy-ready text. The app's home is the "
         "Week screen, drawn from week.json (see the ig skill's Autopilot section): when the user asks to change "
-        "a planned post, edit that post in week.json and run week.py check --fix. There is also a Results "
-        "screen (account scan, posts, growth, trends) and Settings."
+        "a planned post, edit that post in week.json and run week.py check --fix. Every planned post copies a "
+        "reel that went viral in the niche (its `model`, an id in viral.json): write in that reel's shape and "
+        "tone, never in the style of the account's own old posts. There is also a Results "
+        "screen (account scan, posts, growth, trends and what's going viral) and Settings."
     )
 
 
@@ -2827,8 +2829,14 @@ def post_brief(post):
     for b in (post.get("script") or [])[:20]:
         if isinstance(b, dict):
             beats.append(f"- {b.get('t', '')} say: {b.get('say', '')} | on screen: {b.get('on_screen', '')}")
+    model = post.get("model") if isinstance(post.get("model"), dict) else {}
+    copies = ""
+    if model.get("ref"):
+        copies = (f"It copies a reel that went viral: {model.get('account', '')} {model.get('url', '')} "
+                  f"({model.get('structure', '')}). Cut to its pace and look. Copied: "
+                  + "; ".join(str(c) for c in (model.get("copy") or [])[:6]) + "\n")
     notes = (f"This is the planned post \"{post.get('title', '')}\" ({post.get('type', '')}). "
-             f"Concept: {d.get('concept', '')}\n"
+             f"Concept: {d.get('concept', '')}\n" + copies +
              f"Hook, spoken: {hook.get('spoken', '')}\nHook, on screen: {hook.get('on_screen', '')}\n"
              "Beats:\n" + "\n".join(beats))
     return {"mood": mood, "length": length, "lang": "auto", "notes": notes[:2000]}
@@ -2912,9 +2920,20 @@ def api_week(h, body):
             "name": (acc or {}).get("name") if isinstance(acc, dict) else None}
 
 
+VIRAL_STALE_DAYS = 14     # same as state.py: what is going viral is redone every fortnight
+
+
+def viral_age_days():
+    try:
+        return int((time.time() - os.path.getmtime(os.path.join(data_dir(), "viral.json"))) // 86400)
+    except OSError:
+        return None
+
+
 def autopilot_prompt(target, handle, note, scanned):
     week_py = script_path("ig/week.py") or os.path.join(skills_dir(), "ig", "week.py")
     data = data_dir()
+    vage = viral_age_days()
     sunday = target + dt.timedelta(days=6)
     who = "@" + handle if handle else "this account"
     lines = [
@@ -2923,7 +2942,13 @@ def autopilot_prompt(target, handle, note, scanned):
         f"Today is {dt.date.today().isoformat()} ({dt.date.today().strftime('%A')}). Data folder: {data}",
         "Follow the ig skill's \"Autopilot\" section exactly: every post gets its full kit "
         "(hook, script, the director's filming notes, caption, sound, cover).",
+        "Every post copies a reel that went viral in this niche (its model in viral.json): its hook shape, "
+        "structure, pace and tone. Not my own old posts, my old captions or voice.md's tone: those are what "
+        "didn't go viral.",
     ]
+    if vage is None or vage > VIRAL_STALE_DAYS:
+        lines.append(("There is no viral.json yet" if vage is None else f"viral.json is {vage} days old")
+                     + ": do the ig-viral skill's Autopilot section first.")
     if not scanned:
         lines.append(f"There is no account scan yet: scan {who} with kweo first (the ig-scan skill) and save "
                      "the profile, voice, ledger and follower baseline without asking.")
@@ -3002,6 +3027,17 @@ def api_week_prepare(h, body):
     return {"job": job.id, "week_of": target.isoformat()}
 
 
+@route("GET", "/api/viral")
+def api_viral(h, body):
+    """viral.json: the reels going viral in the niche that the week's posts copy."""
+    v = read_json_file(os.path.join(data_dir(), "viral.json"))
+    reels = [r for r in (v or {}).get("reels") or [] if isinstance(r, dict)] if isinstance(v, dict) else []
+    return {"reels": reels, "made": (v or {}).get("made") if isinstance(v, dict) else None,
+            "accounts": (v or {}).get("accounts") if isinstance(v, dict) else None,
+            "top_formulas": (v or {}).get("top_formulas") if isinstance(v, dict) else [],
+            "age_days": viral_age_days(), "stale_days": VIRAL_STALE_DAYS}
+
+
 @route("POST", "/api/week/post")
 def api_week_post(h, body):
     week_of, post = week_post(body.get("week_of"), body.get("id"))
@@ -3043,7 +3079,8 @@ def api_week_redo(h, body):
     week_py = script_path("ig/week.py") or os.path.join(skills_dir(), "ig", "week.py")
     prompt = (f"/ig Autopilot, one post only. Rewrite the post with id \"{post['id']}\" ({post.get('day')}, "
               f"\"{post.get('title', '')}\") in {target}, with its full kit, following the ig skill's Autopilot "
-              f"section. Keep every other post exactly as it is. Ask me nothing.\n"
+              f"section. Keep every other post exactly as it is. Ask me nothing. It still copies a reel from "
+              f"viral.json in that reel's shape and tone (pick another one if it fits the change better).\n"
               f"What I want changed: {note or 'make it stronger: a better hook and a sharper angle'}\n"
               f"Then run: python3 {week_py} check {target} --fix --json (until ok is true)"
               + (f" and python3 {week_py} plan-md {target}" if is_latest else "") +

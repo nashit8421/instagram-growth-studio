@@ -19,13 +19,22 @@ with a header line naming the columns:
 If you only have `followers`, leave median out and the script says so.
 `hook` is the first line of the reel, spoken or on screen, in their words.
 
+Optional columns, kept as they are and passed on to viral.json so a planned
+post can copy the reel: url, on_screen, length (seconds), structure (the beats
+in one line), sound, cta, caption (its first line), lang, source
+(instagram/youtube), posted (YYYY-MM-DD).
+
 Usage
   python3 swipe.py captured.tsv
   python3 swipe.py captured.tsv --out "$(python3 ~/.claude/skills/ig-account/account.py path)/swipe.md"
   python3 swipe.py captured.tsv --json
+
+--out writes swipe.md and, next to it, viral.json: every reel with an id
+(V01 is the biggest outlier). IG Studio's planned posts point at those ids.
 """
 
 import argparse
+import datetime as dt
 import json
 import os
 import re
@@ -130,6 +139,8 @@ def analyse(rows, formulas):
         else:
             r["hook_score"], r["hook_verdict"] = None, None
     ranked = sorted(rows, key=lambda r: -(r["outlier"] or 0))
+    for i, r in enumerate(ranked, 1):
+        r["id"] = f"V{i:02d}"
     third = max(1, len(ranked) // 3)
     top, bottom = ranked[:third], ranked[-third:]
 
@@ -163,7 +174,7 @@ def render(a, out=sys.stdout):
         mult = f"{r['outlier']:.1f}x" if r["outlier"] else "   ?"
         score = f"{r['hook_score']:.0f}" if r["hook_score"] is not None else " -"
         fid = f"#{r['formula_id']:<2}" if r["formula_id"] else "-  "
-        print(f"  {mult:>7}  hook {score:>3}  {fid} {r['formula'][:22]:<22} "
+        print(f"  {r['id']} {mult:>7}  hook {score:>3}  {fid} {r['formula'][:22]:<22} "
               f"{r.get('account', '')[:16]:<16} {r['views']:>9,}", file=out)
         print(f"           \"{r['hook'][:96]}\"", file=out)
     print("-" * max(len(head), 78), file=out)
@@ -189,11 +200,38 @@ def to_markdown(a):
              f"Ranked by multiple over {a['baseline']}.", ""]
     for r in a["reels"]:
         mult = f"{r['outlier']:.1f}x" if r["outlier"] else "?"
-        lines += [f"## {mult}  {r['formula']}  ({r.get('account', '')})",
+        lines += [f"## {r['id']}  {mult}  {r['formula']}  ({r.get('account', '')})",
                   f"- views: {r['views']:,}  baseline: {r['baseline']:,}",
                   f"- hook score: {r['hook_score']}  words: {r['words']}",
-                  f"- hook: \"{r['hook']}\"", ""]
+                  f"- hook: \"{r['hook']}\""]
+        for k in ("on_screen", "length", "structure", "sound", "cta", "url"):
+            if r.get(k):
+                lines.append(f"- {k.replace('_', ' ')}: {r[k]}")
+        lines.append("")
     return "\n".join(lines) + "\n"
+
+
+KEEP = ("url", "on_screen", "structure", "sound", "cta", "caption", "lang", "source", "posted")
+
+
+def to_viral(a, today=None):
+    """viral.json: what a planned post copies. Every number here was captured, none made up."""
+    reels = []
+    for r in a["reels"]:
+        row = {"id": r["id"], "account": r.get("account") or "", "followers": r.get("followers"),
+               "median": r.get("median"), "views": r["views"], "multiple": r["outlier"],
+               "hook": r["hook"], "formula_id": r["formula_id"], "formula": r["formula"],
+               "hook_score": r["hook_score"], "words": r["words"]}
+        digits = re.sub(r"[^\d.]", "", str(r.get("length") or ""))
+        row["length_s"] = round(float(digits)) if re.fullmatch(r"\d+(\.\d+)?", digits) else None
+        for k in KEEP:
+            if r.get(k):
+                row[k] = r[k]
+        reels.append(row)
+    return {"version": 1, "made": (today or dt.date.today()).isoformat(), "baseline": a["baseline"],
+            "n": a["n"], "accounts": a["accounts"],
+            "top_formulas": [{"formula": n, "count": c} for n, c in a["top_formulas"]],
+            "reels": reels}
 
 
 def main():
@@ -221,10 +259,15 @@ def main():
     else:
         render(a)
     if args.out:
-        path = os.path.expanduser(args.out)
+        path = os.path.abspath(os.path.expanduser(args.out))
         os.makedirs(os.path.dirname(path), exist_ok=True)
         open(path, "w", encoding="utf-8").write(to_markdown(a))
         print(f"wrote {path}", file=sys.stderr)
+        vpath = os.path.join(os.path.dirname(path), "viral.json")
+        with open(vpath, "w", encoding="utf-8") as f:
+            json.dump(to_viral(a), f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        print(f"wrote {vpath}", file=sys.stderr)
 
 
 if __name__ == "__main__":

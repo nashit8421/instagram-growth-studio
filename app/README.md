@@ -9,8 +9,9 @@ app shows it.
   **Film it** (the director's setup and shot list), **Edit it** (drop the footage;
   Claude's director cuts, captions, grades and renders the Reel), **Post it** (the
   caption to copy, the sound, the cover, and "I posted it", which logs it).
-- **Results**: the account scan, every post and its numbers, follower growth, trends
-  and sounds.
+- **Results**: the account scan, every post and its numbers, follower growth, and
+  **Viral & trends**: the reels going viral in your niche (the ones your posts copy),
+  trends and sounds.
 - **Ask Claude**: a side panel, for changes ("make Thursday funnier") or anything else.
 - **Settings** (the gear): accounts, profile details, the hand tools (hook scorer,
   script timer, caption checker, humanizer, carousel maker, video editor), system checks.
@@ -18,7 +19,10 @@ app shows it.
 How the week gets made: when there is no plan for the coming week (Mon to Wed: this
 week; Thu to Sun: next week) and Claude Code is installed, the app starts an
 **autopilot** run on its own: it scans the account if needed, finds the growth
-bottleneck, checks trends, picks the posts and writes every kit into `week.json`
+bottleneck, finds the reels going viral in your niche (ranked by how far each beat
+its own account), checks trends, and gives every post the hook, structure, pace and
+tone of one of those viral reels, not your old posts. Each post links the reel it
+copies. It writes every kit into `week.json`
 (see the ig skill's Autopilot section; `skills/ig/week.py` checks it). A run that
 fails is not retried automatically for 6 hours; the page says why and offers a button.
 Each run costs Claude usage, roughly one long session per week per account.

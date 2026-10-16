@@ -25,11 +25,16 @@ One tool lives in this folder and it runs:
 
 ```bash
 DATA=$(python3 ~/.claude/skills/ig-account/account.py path)
-python3 swipe.py captured.tsv --out "$DATA/swipe.md"
+python3 swipe.py captured.tsv --out "$DATA/swipe.md"     # also writes $DATA/viral.json
 ```
 
 `DATA` is the active account's data folder (see /ig-account; defaults to
 `~/IGStudio`).
+
+**This is where the pack's posts come from.** /ig Autopilot, /ig-plan and
+/ig-reel copy the reels in `viral.json`: their hook shape, structure, pace and
+tone. The user's own past posts are not the template; they are what did not
+travel.
 
 ## The one idea that makes this worth doing
 
@@ -81,8 +86,9 @@ Never scrape.
   gets accounts action-blocked. Do not build a crawler, do not use a scraping
   service, and do not loop this in the background.
 - **Copy the formula, never the video.** The hook shape, the structure, the
-  length, the pattern of cuts. Not their script, not their voice, not their
-  edit. Attribute every row in the swipe file to the account it came from.
+  length, the pattern of cuts, the tone and energy. Not their script word for
+  word, not their footage, not their edit. Attribute every row in the swipe
+  file to the account it came from.
 
 **What to capture per reel**, in the creator's own words:
 
@@ -93,9 +99,13 @@ Never scrape.
 | median | eyeball the last 12 reels and take the middle view count |
 | views | this reel |
 | hook | the first line, spoken or on screen, verbatim including bad grammar |
-| on-screen | the first text card, if different |
+| on_screen | the first text card, if different |
 | length | seconds |
 | cta | what they asked for at the end |
+| url | the reel's link, so the user can watch the original |
+| structure | the beats in one line: "hook, 3 jump-cut fails, the fix, loop line" |
+| sound | the audio it uses, if shown |
+| caption | the caption's first line |
 
 Median is the important one. Without it you are back to ranking by follower
 count, which is the thing this skill exists to stop.
@@ -123,9 +133,11 @@ as said, not as written.
 Fill a tab-separated file with a header row and run the script:
 
 ```
-account	followers	median	views	hook
-@someone	48000	11000	412000	nobody tells you your first 30 reels are supposed to flop
+account	followers	median	views	hook	url	length	structure
+@someone	48000	11000	412000	nobody tells you your first 30 reels are supposed to flop	https://www.instagram.com/reel/AbC/	21	hook, 3 quick fails, the fix, loop line
 ```
+
+Only `views` and `hook` are required. Leave a cell empty rather than guess it.
 
 ```bash
 DATA=$(python3 ~/.claude/skills/ig-account/account.py path)
@@ -191,5 +203,31 @@ YOUR VERSION
 Write the swipe file to `swipe.md` in the active account's data folder.
 `/ig-reel` and `/ig-plan` both read it, which is the point: after this runs once, the rest of
 the pack is working from the user's own evidence instead of from defaults.
+
+## Autopilot (IG Studio, /ig Autopilot)
+
+When /ig Autopilot calls this, ask nothing and approve nothing: pick the
+accounts yourself, read, rank, write. About 10 minutes.
+
+1. **Accounts.** 8 to 12: direct (same niche and audience), adjacent (same
+   audience, another niche) and 2 big ones for format. Find them from
+   `swipe.md` and `engaged.md` if they exist, the niche's hashtag pages, and a
+   web search like "viral <niche> reels <region> <month year>". Bigger than
+   the user is fine here: this is for the format, not the cadence.
+2. **Read them.** With kweo, use the `ig-kweo-reader` agent, one account per
+   job and one job at a time: "@x: followers, and the last 12 reels with view
+   counts and links". The account's median is the middle of those 12. For
+   the 2 or 3 reels per account that beat their median most, open the reel
+   for the hook (spoken if a transcript or captions show it, else the
+   on-screen text, else the caption's first line), length, sound, the
+   caption's first line and the structure in one line.
+   Without kweo: web search and public pages only, and YouTube Shorts with
+   `yt_dlp` if it is installed (`source` youtube). Same fields.
+3. **Rank.** Write `captured.tsv` in the kit folder (`$DATA/.studio/kit/<week>/`)
+   and run `swipe.py captured.tsv --out "$DATA/swipe.md"`. That writes
+   `viral.json` with an id per reel (V01 is the biggest outlier). Aim for 20+
+   reels across 6+ accounts; with fewer, say so in the week's assumptions.
+4. **Never invent a row.** Views and a baseline you did not see on a page
+   mean the reel is left out. A short honest list beats a long made-up one.
 
 Nothing is posted, followed, liked or messaged by this skill. It reads.

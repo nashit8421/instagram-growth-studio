@@ -207,16 +207,18 @@ The user came for a plan, not a form.
 2. **Profile.** Run `scan.py prefill`, fill any blank from your read (region
    from language, places and script; account type from the source, else
    `creator`), and save it: `python3 ~/.claude/skills/ig/state.py set ...`.
-3. **Voice.** Draft `voice.md` from the 3 typical captions and the rest of
-   the posts, and write it. Skip only if a filled `voice.md` already exists.
+3. **Voice.** Draft `voice.md` from the posts: the language spoken on camera
+   and anything the user clearly won't say. It is not the style of future
+   posts; those copy reels that went viral (`/ig-viral`). Skip only if a
+   filled `voice.md` already exists.
 4. **Ledger.** `scan.py to-ledger --dry-run`, then run it. It matches by
    permalink, then date plus first line, never duplicates, and never blanks
    a number already logged.
 5. **Baseline.** `grow.py checkin --followers N` with the scanned count, if
    there is no check-in today.
 6. **The week.** Unless the user only asked for the scan, carry straight on:
-   `grow.py report` and `plan` for the bottleneck, then /ig-plan to write
-   `plan.md`. Do not ask "shall I plan your week?". Just plan it.
+   `grow.py report` and `plan` for the bottleneck, /ig-viral for what is
+   going viral in the niche, then /ig-plan to write `plan.md`. Do not ask "shall I plan your week?". Just plan it.
 
 Then reply with one message, in this order:
 

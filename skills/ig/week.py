@@ -4,11 +4,14 @@
     python3 week.py monday [--today 2026-10-16]   # the Monday to plan (Mon-Wed: this week, else next)
     python3 week.py schema                        # the shape, as a filled example
     python3 week.py check FILE [--fix] [--json]   # validate; --fix strips em dashes and invisible chars
+                                                  # and copies each model's facts from viral.json
     python3 week.py plan-md FILE [--out PATH]     # write plan.md from it (default: next to FILE)
 
 Each post is a kit: the hook, the script, how to film it (the director's notes),
-the caption, the sound, and the cover. The user films and posts; nothing here
-posts anything. Stdlib only.
+the caption, the sound, and the cover. Every reel and carousel copies a reel
+that went viral in the niche (`model`, pointing at an id in viral.json, which
+/ig-viral's swipe.py writes). The user films and posts; nothing here posts
+anything. Stdlib only.
 """
 
 import argparse
@@ -26,6 +29,10 @@ CAPTION_LIMIT = 2200
 ID_RE = re.compile(r"^(mon|tue|wed|thu|fri|sat|sun)(-[2-9])?$")
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+MODELED = ("reel", "carousel")    # formats that must copy a viral reel
+# Facts about the model reel. check --fix copies them from viral.json, so none is typed by hand.
+MODEL_FACTS = ("account", "url", "views", "multiple", "hook", "on_screen", "length_s", "formula",
+               "structure", "sound")
 INVISIBLE = re.compile("[​-‏⁠﻿­]")
 EM_DASH = re.compile(r"\s*—\s*")
 
@@ -42,8 +49,14 @@ EXAMPLE = {
         "id": "mon", "day": "MON", "date": "2026-10-19", "time": "19:30",
         "format": "reel", "type": "proof", "trial": False,
         "title": "One line, three emotions",
-        "why": "Range beats plain lip-syncs on this account; the song peaks this week.",
+        "why": "The 3-emotions format did 38x its account's usual views; the song peaks this week.",
         "length_s": 20,
+        "model": {"ref": "V01",
+                  "copy": ["Hook shape: a number promise, then 'which one was real?'",
+                           "Structure: the same line 3 times, a hard cut on each emotion, number on screen",
+                           "Pace: a cut every 4 to 5 seconds, no intro",
+                           "Tone: playful and fast, eyes straight into the lens"],
+                  "change": "Your own line and your own three emotions."},
         "hook": {"spoken": "Ek line, teen emotions.", "on_screen": "Kaunsa wala real tha?",
                  "formula": 18, "formula_name": "Cold Open Demo", "score": 81},
         "script": [
@@ -134,9 +147,26 @@ def _s(x):
     return isinstance(x, str) and x.strip() != ""
 
 
-def check(week, today=None):
-    """Return (errors, warnings). Errors make the kit unusable; warnings are style."""
+def viral_index(viral):
+    """{id: row} from a viral.json, or None when there is no viral.json to check against."""
+    if not isinstance(viral, dict):
+        return None
+    return {r["id"]: r for r in viral.get("reels") or [] if isinstance(r, dict) and _s(r.get("id"))}
+
+
+def model_facts(row):
+    return {k: row[k] for k in MODEL_FACTS if row.get(k) not in (None, "")}
+
+
+def check(week, today=None, viral=None):
+    """Return (errors, warnings). Errors make the kit unusable; warnings are style.
+
+    viral: the parsed viral.json. With it, every model.ref must be a real row and
+    the model's facts must match it. Without it, refs are only warned about.
+    """
     errors, warnings = [], []
+    vindex = viral_index(viral)
+    refs = {}
     if not isinstance(week, dict):
         return ["week.json must be an object."], []
     monday = _date(week.get("week_of"))
@@ -207,6 +237,28 @@ def check(week, today=None):
                 errors.append(f"{where}: every shot needs an action.")
             if not isinstance(dirn.get("setup"), dict):
                 warnings.append(f"{where}: direction.setup (location, light, framing) is missing.")
+        if fmt in MODELED:
+            model = p.get("model") if isinstance(p.get("model"), dict) else {}
+            ref = model.get("ref")
+            copy = model.get("copy")
+            if not _s(ref):
+                errors.append(f"{where}: every {fmt} copies a reel that went viral: set model.ref "
+                              "to its id in viral.json (run /ig-viral first if there is none).")
+            elif vindex is not None:
+                row = vindex.get(ref)
+                if row is None:
+                    errors.append(f"{where}: model.ref {ref} is not in viral.json.")
+                else:
+                    want = model_facts(row)
+                    have = {k: model.get(k) for k in MODEL_FACTS if k in model}
+                    if have != want:
+                        errors.append(f"{where}: the model's facts differ from viral.json {ref} "
+                                      "(run with --fix to copy them over).")
+            if _s(ref):
+                refs.setdefault(ref, []).append(pid)
+            if not isinstance(copy, list) or not any(_s(c) for c in copy):
+                errors.append(f"{where}: model.copy must list what is copied from the viral reel "
+                              "(hook shape, structure, pace, tone).")
         if fmt == "carousel":
             slides = p.get("slides")
             if not isinstance(slides, list) or len(slides) < 2:
@@ -225,6 +277,11 @@ def check(week, today=None):
             warnings.append(f"{where}: {len(tags)} hashtags; the pack uses 3.")
         if fmt in ("reel", "story") and not isinstance(p.get("sound"), dict):
             warnings.append(f"{where}: no sound picked.")
+    if refs and vindex is None:
+        warnings.append("viral.json not found, so the model refs were not checked.")
+    for ref, ids in refs.items():
+        if len(ids) > 2:
+            warnings.append(f"{ref} is the model for {len(ids)} posts ({', '.join(map(str, ids))}); spread the week.")
     for k in ("stories", "todo", "assumptions"):
         if k in week and not isinstance(week[k], list):
             errors.append(f"{k} must be a list.")
@@ -238,9 +295,38 @@ def check(week, today=None):
     return errors, warnings
 
 
-def fix(week):
+def fix(week, viral=None):
+    """Strip em dashes and invisible characters; copy each model's facts from viral.json."""
     new, changed = _walk_text(week, _clean)
-    return new, len(changed)
+    n = len(changed)
+    vindex = viral_index(viral)
+    if vindex is not None and isinstance(new, dict):
+        for p in new.get("posts") or []:
+            model = p.get("model") if isinstance(p, dict) and isinstance(p.get("model"), dict) else None
+            row = vindex.get(model.get("ref")) if model else None
+            if row is None:
+                continue
+            want = model_facts(row)
+            if {k: model.get(k) for k in MODEL_FACTS if k in model} != want:
+                for k in MODEL_FACTS:
+                    model.pop(k, None)
+                model.update(want)
+                n += 1
+    return new, n
+
+
+def find_viral(week_path):
+    """viral.json next to week.json; for an archived week (.studio/weeks/), the account folder."""
+    here = os.path.dirname(os.path.abspath(week_path))
+    looks = [here]
+    parts = here.split(os.sep)
+    if ".studio" in parts:
+        looks.append(os.sep.join(parts[:parts.index(".studio")]) or os.sep)
+    for d in looks:
+        f = os.path.join(d, "viral.json")
+        if os.path.isfile(f):
+            return f
+    return None
 
 
 # ---------------------------------------------------------------- plan.md
@@ -274,6 +360,16 @@ def plan_md(week):
             trial = " (trial)" if p.get("trial") else ""
             lines.append(f"{day}  {_ampm(p.get('time')):<7} {str(p.get('format')).upper():<9} "
                          f"{str(p.get('type')).upper():<8} {formula}{trial} - {p.get('title')}")
+    copies = [p for p in week.get("posts") or [] if isinstance(p.get("model"), dict) and p["model"].get("ref")]
+    if copies:
+        lines += ["", "COPIES  each post copies a reel that went viral"]
+        for p in copies:
+            m = p["model"]
+            views = f"{m['views']:,} views" if isinstance(m.get("views"), int) else ""
+            mult = f"{m['multiple']:g}x their usual" if isinstance(m.get("multiple"), (int, float)) else ""
+            facts = ", ".join(x for x in (m.get("account"), views, mult) if x)
+            lines.append(f"  {m['ref']}  {facts}{'  ' + m['url'] if m.get('url') else ''}  ->  "
+                         f"{str(p.get('day')).title()} '{p.get('title')}'")
     stories = week.get("stories") or []
     if stories:
         lines += ["", "STORIES"]
@@ -325,6 +421,7 @@ def main(argv=None):
     c.add_argument("file")
     c.add_argument("--fix", action="store_true")
     c.add_argument("--json", action="store_true")
+    c.add_argument("--viral", help="viral.json to check the models against (default: next to FILE)")
     p = sub.add_parser("plan-md")
     p.add_argument("file")
     p.add_argument("--out")
@@ -345,11 +442,24 @@ def main(argv=None):
         return 1
     if args.cmd == "check":
         fixed = 0
+        vpath = args.viral or find_viral(args.file)
+        viral, verr = None, None
+        if vpath:
+            try:
+                viral = _load(vpath)
+            except (OSError, ValueError) as e:
+                verr = f"Cannot read {vpath}: {e}"
+        else:
+            verr = ("viral.json not found next to week.json. Every post copies a reel that went viral "
+                    "in the niche: run /ig-viral first (swipe.py --out writes viral.json).")
         if args.fix:
-            week, fixed = fix(week)
+            week, fixed = fix(week, viral)
             if fixed:
                 _save(args.file, week)
-        errors, warnings = check(week)
+        errors, warnings = check(week, viral=viral)
+        if verr:
+            errors.insert(0, verr)
+            warnings = [w for w in warnings if not w.startswith("viral.json not found")]
         res = {"ok": not errors, "errors": errors, "warnings": warnings, "fixed": fixed,
                "posts": len(week.get("posts") or []) if isinstance(week, dict) else 0}
         if args.json:

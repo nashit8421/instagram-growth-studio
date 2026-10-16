@@ -37,6 +37,7 @@ TRENDS_STALE_DAYS = 7      # memes and topics turn over in days; refresh weekly
 PLAN_STALE_DAYS = 7        # a plan covers one week
 VOICE_MIN_FIELDS = 3       # filled "- **Field:** value" lines before voice.md counts as real
 SCAN_STALE_DAYS = 30       # an account profile older than this gets a rescan step
+VIRAL_STALE_DAYS = 14      # what is going viral in the niche: refresh every fortnight
 
 DAYS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 
@@ -268,6 +269,7 @@ def build_state(today=None, checks=True):
     ck_date, ck_n = last_checkin()
     led = ledger_summary(today)
     trends_age = _age_days(_path("trends.md"), today)
+    viral_age = _age_days(_path("viral.json"), today)
     plan_age = _age_days(_path("plan.md"), today)
     slot = todays_slot(today)
     due = perf_due() if checks else []
@@ -299,14 +301,13 @@ def build_state(today=None, checks=True):
                     "and is your Instagram a creator or business account? (Optional: language, goal.)",
                 blocking=True)
     if voice != "filled":
-        why = "Scripts have to sound like you. voice.md is " + (
-            "missing." if voice == "missing" else "still the empty template.")
-        if scan:
-            add("voice", "/ig-reel", why + " Draft it from the scanned captions and save it.")
-        else:
-            add("voice", "/ig-reel", why,
-                ask="Paste three of your own captions or reel transcripts (or answer the voice.md questions).",
-                blocking=True)
+        # voice.md is the language on camera and the hard no's. It never sets the
+        # tone of a post: posts copy reels that went viral, not the account's past.
+        why = ("voice.md holds the language you speak on camera and anything you won't say "
+               "(the tone comes from viral reels, not from your old posts). It is " + (
+                   "missing." if voice == "missing" else "still the empty template."))
+        add("voice", "/ig-reel", why + (" Draft it from the scanned captions and save it." if scan
+                                        else " Draft it after the scan."))
     if ck_date is None:
         if scan and isinstance(scan.get("followers"), int):
             add("baseline", "/ig-grow", "Growth is measured from a starting point. "
@@ -329,6 +330,10 @@ def build_state(today=None, checks=True):
     if ck_date is not None and (today - ck_date).days >= WEEKLY_REVIEW_DAYS:
         add("weekly_review", "/ig-grow", f"Last follower check-in was {(today - ck_date).days} days ago. "
             "Time for the weekly review.", ask="How many followers do you have today?")
+    if not missing and (viral_age is None or viral_age > VIRAL_STALE_DAYS):
+        add("viral", "/ig-viral", "Every post copies a reel that is going viral in the niche right now. " + (
+            "No viral research yet." if viral_age is None else f"The viral research is {viral_age} days old.")
+            + " Find them, rank them by how far they beat their own account, write viral.json.")
     if not missing and (trends_age is None or trends_age > TRENDS_STALE_DAYS):
         add("trends", "/ig-trends", "No trend board yet." if trends_age is None
             else f"Trend board is {trends_age} days old.")
@@ -355,6 +360,7 @@ def build_state(today=None, checks=True):
         "followers": {"last_checkin": ck_date.isoformat() if ck_date else None, "count": ck_n},
         "ledger": led,
         "trends_age_days": trends_age,
+        "viral_age_days": viral_age,
         "plan_age_days": plan_age,
         "today": slot,
         "perf_due": due,
@@ -381,6 +387,8 @@ def render(st, out=None):
     else:
         p("  scan       not yet (/ig-scan)")
     p(f"  voice      {st['voice']}")
+    va = st.get("viral_age_days")
+    p(f"  viral      {'not yet (/ig-viral)' if va is None else str(va) + ' days old'}")
     f = st["followers"]
     p(f"  followers  {f['count'] if f['count'] is not None else '-'}"
       f"{'  (checked ' + f['last_checkin'] + ')' if f['last_checkin'] else ''}")

@@ -24,17 +24,20 @@ defaults to `~/IGStudio`).
 
 ## Input
 
-If `voice.md`, `swipe.md` and `log.md` exist, read them.
-The swipe file is the user's own evidence from `/ig-viral` about which formulas
-are landing in their niche right now, and it outranks anything in this file.
-The log stops the plan repeating a theme from the last fortnight.
+Read `viral.json` (or `swipe.md`) and `log.md` if they exist. `viral.json`
+is `/ig-viral`'s list of reels that went viral in this niche, and **every
+slot copies one of them**: its hook shape, structure, pace and tone. It
+outranks anything in this file. If it is missing or over 14 days old, run
+`/ig-viral` first. The log stops the plan repeating a theme from the last
+fortnight. Do not plan from the user's own past posts or `voice.md` tone:
+their old posts are the ones that did not travel.
 
 **Do not open with questions.** Work out the inputs yourself and plan:
 
 1. **What the account is for, and for whom** - from the bio, `account.md`
    (Claude's read) and `profile.json`.
-2. **The 3 or 4 themes** - what already beats the account's median in
-   `account.md`, plus what the bio promises.
+2. **The 3 or 4 themes** - the formats over-indexing in `viral.json`, the
+   ones this person can film, inside what the bio promises.
 3. **This week's real moments** - if the user mentioned any, use them. If
    not, give each slot a *filmable prompt* drawn from a theme that works
    ("film your next practice take, say how many takes it took"). The user
@@ -64,8 +67,9 @@ Mix across the week, never two of the same type back to back:
 | **Story** | 1 per fortnight | a scene with a cost. Reel. |
 | **Offer** | 1 per fortnight | what you sell, said plainly, no apology. Carousel or stories. |
 
-For each slot give: the theme, the specific angle from what actually happened
-this week, the format, and the hook formula number from `ig-reel/hooks.json`.
+For each slot give: the viral reel it copies (its id in viral.json), the
+theme, the specific angle from what actually happened this week, the format,
+and the hook formula number from `ig-reel/hooks.json`.
 Not a topic, an angle. "AI" is not a plan. "The proposal we lost because the
 draft had an em dash in it" is a Reel.
 

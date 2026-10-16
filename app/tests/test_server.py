@@ -790,7 +790,7 @@ class WeekTests(Base):
 
     def setUp(self):
         for p in (os.path.join(server.data_dir(), "week.json"), server.studio_path("autopilot.json"),
-                  server.studio_path("week-status.json")):
+                  server.studio_path("week-status.json"), os.path.join(server.data_dir(), "viral.json")):
             if os.path.exists(p):
                 os.remove(p)
         shutil.rmtree(server.studio_path("weeks"), ignore_errors=True)
@@ -804,7 +804,10 @@ class WeekTests(Base):
                 "script": [{"t": "0-2s", "say": "Ek line, teen emotions.", "on_screen": "Kaunsa wala real tha?"}],
                 "direction": {"mood": "dramatic", "concept": "same line three ways", "setup": {},
                               "shots": [{"n": 1, "action": "look in the lens"}]},
-                "caption": {"text": "Kaunsa wala real tha?", "hashtags": ["#acting"]}}
+                "caption": {"text": "Kaunsa wala real tha?", "hashtags": ["#acting"]},
+                "model": {"ref": "V01", "copy": ["Hook shape: a number promise"], "account": "@someone",
+                          "url": "https://www.instagram.com/reel/AAA/", "views": 412000, "multiple": 38.4,
+                          "structure": "hook, 3 takes, the question"}}
         with open(os.path.join(server.data_dir(), "week.json"), "w", encoding="utf-8") as f:
             json.dump({"version": 1, "week_of": week_of, "headline": "One reel", "posts": [post]}, f)
 
@@ -857,7 +860,8 @@ class WeekTests(Base):
         self.assertEqual(evs[-1]["status"], "done", evs[-1])
         prompt = self.fake_calls()[-1]["prompt"]
         for bit in ("/ig Autopilot", "week of Monday " + self.target, "ask me nothing", "week.py check",
-                    "plan-md", "@zara.abbasi22"):
+                    "plan-md", "@zara.abbasi22", "copies a reel that went viral", "Not my own old posts",
+                    "There is no viral.json yet: do the ig-viral skill's Autopilot section first"):
             self.assertIn(bit, prompt)
         st, w, _, _ = self.req("GET", "/api/week")
         self.assertEqual(w["week"]["headline"], "Fake week")
@@ -905,7 +909,8 @@ class WeekTests(Base):
         evs = self.events(j["job"])
         prompt = self.fake_calls()[-1]["prompt"]
         for bit in ("Ek line, teen emotions.", "Kaunsa wala real tha?", "Mood: dramatic", "20 seconds",
-                    "auto-render", "STOP at step 6", "Do not render"):
+                    "auto-render", "STOP at step 6", "Do not render", "It copies a reel that went viral: @someone",
+                    "https://www.instagram.com/reel/AAA/", "hook, 3 takes, the question"):
             self.assertIn(bit, prompt)
         self.assertEqual(evs[-1]["status"], "error")                    # the fake made no storyboard
         self.assertIn("without a storyboard", evs[-1]["error"])
@@ -915,6 +920,22 @@ class WeekTests(Base):
         self.assertEqual(prog["edit"]["dir"], j["dir"])
         self.assertIn("without a storyboard", prog["edit"]["error"])
 
+    def test_viral_list_and_fresh_research_is_not_redone(self):
+        st, j, _, _ = self.req("GET", "/api/viral")
+        self.assertEqual(st, 200, j)
+        self.assertEqual(j["reels"], [])
+        self.assertIsNone(j["age_days"])
+        with open(os.path.join(server.data_dir(), "viral.json"), "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "made": "2026-10-16", "accounts": 1, "reels": [
+                {"id": "V01", "account": "@someone", "views": 412000, "multiple": 38.4, "hook": "1 line, 3 emotions"},
+                "junk"]}, f)
+        st, j, _, _ = self.req("GET", "/api/viral")
+        self.assertEqual([r["id"] for r in j["reels"]], ["V01"])
+        self.assertEqual(j["age_days"], 0)
+        prompt = server.autopilot_prompt(server.dt.date.fromisoformat(self.target), "zara.abbasi22", "", True)
+        self.assertIn("copies a reel that went viral", prompt)
+        self.assertNotIn("ig-viral skill's Autopilot section first", prompt)
+
     def test_redo_one_post(self):
         self.write_week()
         self.req("GET", "/api/week")
@@ -923,5 +944,6 @@ class WeekTests(Base):
         self.events(j["job"])
         prompt = self.fake_calls()[-1]["prompt"]
         self.assertIn('id "mon"', prompt)
+        self.assertIn("copies a reel from viral.json", prompt)
         self.assertIn("funnier", prompt)
         self.assertIn("Keep every other post exactly as it is", prompt)

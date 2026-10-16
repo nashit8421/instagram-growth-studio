@@ -2,8 +2,8 @@
 name: ig-reel
 description: >-
   Write an Instagram Reel from a raw idea - hook options off 26 formulas, the
-  spoken script, the on-screen text, and a timed beat sheet - in the user's own
-  voice and scored before they shoot it. Use whenever the user wants a Reel, a
+  spoken script, the on-screen text, and a timed beat sheet - in the shape and
+  tone of a reel that went viral in their niche, scored before they shoot it. Use whenever the user wants a Reel, a
   short-form video script, a hook, a voiceover, "make a reel about X", "what
   should I say in this video", or is about to record and does not have the
   first line yet.
@@ -34,11 +34,16 @@ defaults to `~/IGStudio`).
 
 ## Before you write
 
-1. Read `voice.md` if it exists. That is the user's voice
-   profile: how they talk on camera, what they never say, who they are talking
-   to. If it does not exist, ask for **three of their own reels**, transcribe or
-   read them, infer the voice, and write the file. A script in the wrong voice
-   is unusable, because they have to say it out loud.
+1. **Pick the model.** Read `viral.json` (or `swipe.md`) in the data folder:
+   reels that beat their own account in this niche, written by `/ig-viral`.
+   Choose the one that fits the idea and write in its shape and tone: its
+   hook grammar, its beats in order, its length, its pace and energy, its
+   on-screen text style. Copy the shape, never its words line for line, its
+   footage or its edit. If there is no viral.json, run `/ig-viral` first, or
+   fall back to the formulas below and say so.
+   Do not model the script on the user's own old posts or captions. Those
+   are what did not travel. `voice.md` gives only the language they speak on
+   camera and what they won't say; it is not the tone.
 2. Read `hooks.json` in this folder. 26 formulas, each with a template, a filled
    example, the on-screen version, what it is for, and how it gets ruined.
    Four of them are in there because they kept turning up in real hooks, not
@@ -46,9 +51,8 @@ defaults to `~/IGStudio`).
 3. If the idea is thin, do not pad it. Ask one batched question: what happened,
    to whom, and what did it cost or return. A Reel needs one specific true
    thing. Get it before writing.
-4. If `swipe.md` exists, read it. `/ig-viral` writes that
-   file, and it is the user's own evidence about which formulas are working in
-   their niche right now. It beats the defaults in this file.
+4. The viral model beats the defaults in this file. Where they disagree on
+   length, pace or hook shape, follow the model.
 
 ## The shape
 

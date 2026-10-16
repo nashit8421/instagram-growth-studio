@@ -24,6 +24,17 @@ def example():
     return copy.deepcopy(week.EXAMPLE)
 
 
+VIRAL = {"version": 1, "made": "2026-10-16", "reels": [
+    {"id": "V01", "account": "@someone", "views": 412000, "multiple": 38.4, "median": 10700,
+     "hook": "1 line, 3 emotions. Which one was real?", "formula": "Cold Open Demo",
+     "url": "https://www.instagram.com/reel/AAA/", "length_s": 21, "followers": 48000},
+    {"id": "V02", "account": "@other", "views": 90000, "multiple": 6.0, "hook": "stop doing this"}]}
+
+
+def viral():
+    return copy.deepcopy(VIRAL)
+
+
 class TestMonday(unittest.TestCase):
     def test_mon_to_wed_plan_this_week(self):
         for d in ("2026-10-12", "2026-10-13", "2026-10-14"):
@@ -109,6 +120,84 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(week.check(fixed)[0], [])
 
 
+class TestModel(unittest.TestCase):
+    def test_reel_must_copy_a_viral_reel(self):
+        w = example()
+        del w["posts"][0]["model"]
+        errors, _ = week.check(w)
+        self.assertTrue(any("copies a reel that went viral" in e for e in errors), errors)
+
+    def test_copy_list_required(self):
+        w = example()
+        w["posts"][0]["model"]["copy"] = []
+        errors, _ = week.check(w)
+        self.assertTrue(any("model.copy" in e for e in errors), errors)
+
+    def test_ref_must_exist_in_viral_json(self):
+        w = example()
+        w["posts"][0]["model"]["ref"] = "V09"
+        errors, _ = week.check(w, viral=viral())
+        self.assertTrue(any("V09 is not in viral.json" in e for e in errors), errors)
+
+    def test_without_viral_json_refs_are_only_warned(self):
+        errors, warnings = week.check(example())
+        self.assertEqual(errors, [])
+        self.assertTrue(any("viral.json not found" in x for x in warnings))
+
+    def test_fix_copies_the_facts_and_drops_made_up_ones(self):
+        w = example()
+        w["posts"][0]["model"].update({"views": 999999, "url": "https://example.com/made-up", "median": 5})
+        errors, _ = week.check(w, viral=viral())
+        self.assertTrue(any("differ from viral.json V01" in e for e in errors), errors)
+        fixed, n = week.fix(w, viral())
+        m = fixed["posts"][0]["model"]
+        self.assertEqual(n, 1)
+        self.assertEqual(m["views"], 412000)
+        self.assertEqual(m["url"], "https://www.instagram.com/reel/AAA/")
+        self.assertEqual(m["multiple"], 38.4)
+        self.assertEqual(m["copy"], example()["posts"][0]["model"]["copy"])     # Claude's words stay
+        self.assertEqual(week.check(fixed, viral=viral())[0], [])
+
+    def test_fix_leaves_out_facts_viral_json_does_not_have(self):
+        w = example()
+        w["posts"][0]["model"].update({"ref": "V02", "url": "https://example.com/guess", "length_s": 30})
+        fixed, _ = week.fix(w, viral())
+        m = fixed["posts"][0]["model"]
+        self.assertNotIn("url", m)
+        self.assertNotIn("length_s", m)
+        self.assertEqual(m["views"], 90000)
+
+    def test_one_model_for_many_posts_is_a_warning(self):
+        w = example()
+        for d, day in (("2026-10-20", "TUE"), ("2026-10-21", "WED")):
+            p = copy.deepcopy(w["posts"][0])
+            p.update({"id": day.lower(), "day": day, "date": d})
+            w["posts"].append(p)
+        _, warnings = week.check(w)
+        self.assertTrue(any("model for 3 posts" in x for x in warnings), warnings)
+
+    def test_stories_need_no_model(self):
+        w = example()
+        p = w["posts"][0]
+        p["format"] = "story"
+        del p["model"]
+        self.assertEqual(week.check(w)[0], [])
+
+    def test_find_viral_from_archive(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            arch = os.path.join(tmp, ".studio", "weeks")
+            os.makedirs(arch)
+            with open(os.path.join(tmp, "viral.json"), "w") as f:
+                json.dump(VIRAL, f)
+            self.assertEqual(week.find_viral(os.path.join(arch, "2026-10-19.json")), os.path.join(tmp, "viral.json"))
+            self.assertEqual(week.find_viral(os.path.join(tmp, "week.json")), os.path.join(tmp, "viral.json"))
+            os.remove(os.path.join(tmp, "viral.json"))
+            self.assertIsNone(week.find_viral(os.path.join(tmp, "week.json")))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 class TestPlanMd(unittest.TestCase):
     def test_plan_lines_match_ig_plan_format(self):
         w = example()
@@ -123,6 +212,16 @@ class TestPlanMd(unittest.TestCase):
         self.assertIn("TUE  stories only + engage", text)
         self.assertIn("WHAT YOU NEED TO DO", text)
         self.assertIn("Sat Oct 17", text)
+
+    def test_copies_section_after_fix(self):
+        w, _ = week.fix(example(), viral())
+        text = week.plan_md(w)
+        self.assertIn("COPIES  each post copies a reel that went viral", text)
+        self.assertIn("  V01  @someone, 412,000 views, 38.4x their usual  https://www.instagram.com/reel/AAA/  ->  "
+                      "Mon 'One line, three emotions'", text)
+        # the line does not start with a day name, so plan.md parsers don't read it as a slot
+        line = [x for x in text.splitlines() if x.strip().startswith("V01")][0]
+        self.assertNotRegex(line, r"^\s*(MON|TUE|WED|THU|FRI|SAT|SUN)")
 
 
 class TestCli(unittest.TestCase):
@@ -139,8 +238,25 @@ class TestCli(unittest.TestCase):
             rc = week.main(list(args))
         return rc, buf.getvalue()
 
+    def write_viral(self):
+        with open(os.path.join(self.tmp, "viral.json"), "w", encoding="utf-8") as f:
+            json.dump(VIRAL, f)
+
+    def test_check_needs_viral_json(self):
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(example(), f)
+        rc, out = self.run_cli("check", self.path, "--json")
+        self.assertEqual(rc, 1)
+        self.assertIn("run /ig-viral first", json.loads(out)["errors"][0])
+        self.write_viral()
+        rc, out = self.run_cli("check", self.path, "--fix", "--json")
+        self.assertEqual(rc, 0, out)
+        with open(self.path, encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["posts"][0]["model"]["account"], "@someone")
+
     def test_check_fix_then_plan_md(self):
-        w = example()
+        self.write_viral()
+        w, _ = week.fix(example(), viral())
         w["headline"] = "Five reels — one lever"
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(w, f)

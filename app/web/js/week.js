@@ -45,9 +45,10 @@
   var PREP_PHASES = [
     { label: "Reading the account", match: /scan\.py|kweo|account\.md|state\.py/i },
     { label: "Finding the one thing holding growth back", match: /grow\.py/i },
+    { label: "Finding reels going viral in your niche", match: /swipe\.py|\/ig-viral|captured\.tsv/i },
     { label: "Checking what's trending this week", match: /trends\.py|Searching the web|ig-trends|Reading .*\.(com|in|org)/i },
     { label: "Picking the posts and the days", match: /ig-plan|plan\.md|hooks\.json/i },
-    { label: "Writing hooks and scripts", match: /hookscore\.py|beats\.py|ig-reel/i },
+    { label: "Writing hooks and scripts in their shape", match: /hookscore\.py|beats\.py|ig-reel/i },
     { label: "Captions, sounds, and the director's notes", match: /caption\.py|humanize\.py|audio\.py|ig-caption|ig-audio|week\.json/i },
     { label: "Final check", match: /week\.py/i }
   ];
@@ -199,6 +200,8 @@
         h("span", { class: "type", text: p.type }),
         p.trial ? h("span", { class: "badge info", text: "trial" }) : null),
       h("div", { class: "pc-title", text: p.title }),
+      p.model && p.model.ref ? h("div", { class: "pc-model" }, IG.icon("trends"),
+        h("span", { text: "Copies " + (p.model.account || p.model.ref) + (p.model.multiple ? " · " + IG.n(p.model.multiple, 1) + "× their usual views" : "") })) : null,
       hook.spoken || hook.on_screen ? h("div", { class: "pc-hook", text: IG.quote(hook.spoken || hook.on_screen) }) : null,
       h("div", { class: "pc-foot" }, stageDots(p),
         h("span", { class: "pc-next" + (stage === "posted" ? " ok" : ""), text: running ? "Director at work…" : next }, stage === "posted" ? null : IG.icon("arrow"))));
@@ -277,6 +280,9 @@
         h("p", { class: "eyebrow", text: "Week of " + IG.day(w.week_of).toLocaleDateString(undefined, { day: "numeric", month: "long" }) + (data.handle ? " · @" + data.handle : "") }),
         h("h1", { text: w.headline || "This week" }),
         w.bottleneck && w.bottleneck.line ? h("p", { class: "lede" }, h("b", { text: IG.cap(w.bottleneck.key || "Focus") + ": " }), w.bottleneck.line) : null,
+        (w.posts || []).some(function (p) { return p.model && p.model.ref; })
+          ? h("p", { class: "small muted" }, "Every post copies a reel that's going viral in your niche, not your old posts. ",
+            h("a", { href: IG.hashFor("trends", { tab: "viral" }), text: "See the reels" })) : null,
         h("div", { class: "row hero-actions" }, remindersBtn(), redoWeekBtn(w.week_of === data.target ? "Redo the week" : "Plan next week now"))));
     view.appendChild(hero);
 

@@ -541,6 +541,8 @@ details.more[open] > summary::before { content: "▾ "; }
 .fmt.story, .fmt.photo { background: var(--warn-soft); color: var(--warn); }
 .pc-title { font-size: 17px; font-weight: 700; letter-spacing: -.015em; }
 .pc-hook { color: var(--muted); font-size: 14.5px; }
+.pc-model { display: flex; gap: 6px; align-items: center; font-size: 12.5px; font-weight: 650; color: var(--info); }
+.pc-model svg { width: 14px; height: 14px; flex: none; }
 .pc-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 4px; }
 .dots { display: flex; gap: 5px; }
 .dots .d { width: 22px; height: 5px; border-radius: 99px; background: var(--surface-3); }
@@ -628,6 +630,20 @@ ul.plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; fon
 .beats .say { font-size: 16px; line-height: 1.45; }
 .ost { font-size: 13.5px; color: var(--muted); margin-top: 4px; display: flex; gap: 8px; align-items: center; }
 .shotref { font-size: 12px; color: var(--faint); white-space: nowrap; padding-top: 4px; }
+
+.model { border: 1px solid var(--border); border-left: 4px solid var(--info); border-radius: 14px; background: var(--surface); padding: 16px 20px; margin-bottom: 18px; display: grid; gap: 10px; }
+.model-h { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.model-who { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 15.5px; }
+.model-hook { margin: 0; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 15px; }
+.model h3 { margin: 0 0 4px; font-weight: 700; }
+.model a.btn { text-decoration: none; }
+ol.viral { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+ol.viral li { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--border); }
+ol.viral li:first-child { border-top: 0; }
+ol.viral .vx { font: 700 15px var(--mono); color: var(--info); min-width: 58px; padding-top: 1px; }
+ol.viral .vh { font-size: 15px; font-weight: 600; }
+ol.viral a.btn { text-decoration: none; flex: none; }
+@media (max-width: 600px) { ol.viral li { flex-wrap: wrap; } ol.viral .vx { min-width: 0; } }
 
 .concept { font-size: 15.5px; margin: 0; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }

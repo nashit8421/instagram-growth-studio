@@ -38,8 +38,10 @@ start; without it there is no transcript and captions fall back to none.
 `python3 $D analyze <video> --json`. Pass `--lang` when it is not English
 (`hi` for Hindi/Hinglish, `auto` to detect). It prints the edit folder
 (`$DATA/edits/<name>-direct-<time>/`). Read `transcript.txt` and look at the
-`sheet-*.jpg` frame sheets yourself. Also read `account.md` and `voice.md` in
-the data folder if they exist, and `trends.md`.
+`sheet-*.jpg` frame sheets yourself. Also read `account.md` in the data
+folder if it exists, and `trends.md`. When the footage is for a planned post,
+its kit names the viral reel it copies (`model`): cut to that reel's pace,
+structure and look, not to the account's old edits.
 
 ### 2. Brief (you, the director)
 

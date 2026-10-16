@@ -84,7 +84,7 @@ private faster-whisper install in `~/.ig-studio`), in the background, with no ad
 | `/ig-plan` | The week: what, which format, when, who to engage | original |
 | `/ig-calendar` | The plan as Google Calendar reminders (asks first) or an .ics file | new |
 | `/ig-profile` | Profile scored out of 100, rewritten in fix-first order | original |
-| `/ig-viral` | Outlier reels in your niche, ranked, as a swipe file | original |
+| `/ig-viral` | Outlier reels in your niche, ranked, as a swipe file and `viral.json`: every planned post copies one | original |
 | `/ig-repurpose` | One long video or podcast into a week of posts | original |
 | `/ig-comment` | Comments on other people's posts that read as a person | original |
 | `/ig-reply` | Replies under your own posts, sorted by value | original |

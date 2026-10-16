@@ -1,4 +1,4 @@
-/* Trends & Sound: the trend board, logged trends, sounds and sound picks. */
+/* Trends & Sound: what's going viral in the niche, the trend board, logged trends, sounds and sound picks. */
 (function () {
   "use strict";
   var h = IG.h;
@@ -138,13 +138,46 @@
     }).catch(function (e) { IG.clear(listBox).appendChild(IG.errorBox(e)); });
   }
 
+  /* What is going viral in the niche (viral.json). Every planned post copies one of these. */
+  function viralTab(box) {
+    var sub = h("p", { class: "muted small" });
+    var list = h("div", null, IG.loading());
+    box.appendChild(h("section", { class: "card" },
+      h("div", { class: "card-h" }, h("div", null, h("h2", { text: "Going viral in your niche" }), sub),
+        IG.claudeReady() ? IG.btn("Find new ones with Claude", { icon: "assistant", onClick: function () {
+          IG.ask("/ig-viral Find the reels going viral in my niche right now (Autopilot mode: pick the accounts yourself), rank them and write viral.json.", { send: true });
+        } }) : null),
+      list));
+    IG.get("/api/viral").then(function (r) {
+      IG.clear(list);
+      if (!r.reels.length) {
+        list.appendChild(h("div", { class: "empty" }, h("h3", { text: "No viral research yet" }),
+          h("p", { text: "Claude finds these when it prepares your week. Every post copies one of them." })));
+        return;
+      }
+      sub.textContent = r.reels.length + " reels" + (r.accounts ? " from " + r.accounts + " accounts" : "") +
+        ", ranked by how far each beat its own account's usual views. Found " + IG.date(r.made) + ".";
+      list.appendChild(h("ol", { class: "viral" }, r.reels.map(function (x) {
+        return h("li", null,
+          h("span", { class: "vx", title: "Times its account's usual views", text: x.multiple ? IG.n(x.multiple, 1) + "×" : "–" }),
+          h("div", { class: "grow" },
+            h("div", { class: "vh", text: IG.quote(x.hook) }),
+            h("div", { class: "small muted", text: [x.account, IG.compact(x.views) + " views", x.formula && x.formula !== "unclassified" ? x.formula : null, x.length_s ? x.length_s + "s" : null].filter(Boolean).join(" · ") }),
+            x.structure ? h("div", { class: "small faint", text: x.structure }) : null),
+          x.url ? h("a", { class: "btn sm ghost", href: x.url, target: "_blank", rel: "noopener noreferrer", text: "Watch" }) : null);
+      })));
+    }).catch(function (e) { IG.clear(list).appendChild(IG.errorBox(e)); });
+  }
+
   IG.screen("trends", {
-    title: "Trends & Sound", short: "Trends", icon: "trends", group: "results",
+    title: "Viral & trends", short: "Viral", icon: "trends", group: "results",
     render: function (view, params) {
-      var tab = sessionStorage.getItem("igtrends") || "trends";
+      var tab = (params && params.tab) || sessionStorage.getItem("igtrends") || "viral";
+      var tabs = { viral: viralTab, trends: trendsTab, sounds: soundsTab };
+      if (!tabs[tab]) tab = "viral";
       var body = h("div", { class: "stack" });
-      var show = function (k) { try { sessionStorage.setItem("igtrends", k); } catch (e) { /* ignore */ } IG.clear(body); (k === "sounds" ? soundsTab : trendsTab)(body); };
-      view.appendChild(h("div", { class: "stack" }, IG.seg([["trends", "Trends"], ["sounds", "Sounds"]], tab, show, "Section"), body));
+      var show = function (k) { try { sessionStorage.setItem("igtrends", k); } catch (e) { /* ignore */ } IG.clear(body); tabs[k](body); };
+      view.appendChild(h("div", { class: "stack" }, IG.seg([["viral", "Going viral"], ["trends", "Trends"], ["sounds", "Sounds"]], tab, show, "Section"), body));
       if (!IG.state) IG.get("/api/state?quick=1").then(function (s) { IG.state = s; }).catch(function () { /* fine */ });
       show(tab);
     }

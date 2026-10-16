@@ -24,6 +24,26 @@
       body);
   }
 
+  /* ---------- the viral reel this post copies */
+  function modelCard(p) {
+    var m = p.model;
+    if (!m || !m.ref) return null;
+    var facts = [m.views != null ? IG.compact(m.views) + " views" : null,
+      m.multiple ? IG.n(m.multiple, 1) + "× their usual" : null,
+      m.length_s ? m.length_s + "s" : null].filter(Boolean).join(" · ");
+    return h("section", { class: "model" },
+      h("div", { class: "model-h" },
+        h("div", { class: "grow" },
+          h("p", { class: "eyebrow", text: "Copies a reel that went viral" }),
+          h("div", { class: "model-who" }, h("b", { text: m.account || m.ref }), facts ? h("span", { class: "muted", text: facts }) : null)),
+        m.url ? h("a", { class: "btn sm", href: m.url, target: "_blank", rel: "noopener noreferrer" }, IG.icon("play"), h("span", { text: "Watch it first" })) : null),
+      m.hook ? h("p", { class: "model-hook" }, h("span", { class: "lbl", text: "Their hook" }), h("span", { text: IG.quote(m.hook) })) : null,
+      m.structure ? h("p", { class: "small muted", text: "How it goes: " + m.structure }) : null,
+      (m.copy || []).length ? h("div", null, h("h3", { class: "small", text: "What you copy" }),
+        h("ul", { class: "plain small" }, m.copy.map(function (c) { return h("li", { text: c }); }))) : null,
+      m.change ? h("p", { class: "small" }, h("b", { text: "What's yours: " }), m.change) : null);
+  }
+
   /* ---------- teleprompter */
   function teleprompter(lines) {
     var speed = 1.2, playing = true, y = 0, last = null, raf = null;
@@ -322,6 +342,8 @@
           h("div", { class: "row between" }, stepper(p), redoBtn(p, weekOf, reload, redoBox)),
           redoBox,
           p.trial ? IG.note("info", "Post this one as a Trial Reel (Instagram: Share → Trial). Non-followers see it first; it stays off your grid unless it does well.") : null));
+        var model = modelCard(p);
+        if (model) view.appendChild(model);
         view.appendChild(sayThis(p));
         if (p.format === "reel") {
           view.appendChild(filmIt(p));

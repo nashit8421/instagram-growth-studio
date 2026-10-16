@@ -124,6 +124,26 @@ class TestSetupOrder(StateTest):
         self.assertIn("trends", keys)
         self.assertIn("plan", keys)
 
+    def test_voice_never_asks_or_blocks(self):
+        # Posts copy viral reels' tone, so nobody is asked for their own captions.
+        st = state.build_state(TODAY, checks=False)
+        voice = next(s for s in st["next"] if s["key"] == "voice")
+        self.assertIsNone(voice["ask"])
+        self.assertFalse(voice["blocking"])
+
+    def test_viral_research_before_trends_and_plan(self):
+        self.setup_done()
+        keys = self.keys()
+        self.assertIn("viral", keys)
+        self.assertLess(keys.index("viral"), keys.index("plan"))
+        self.write("viral.json", {"reels": []}, day=TODAY - dt.timedelta(days=3))
+        self.assertNotIn("viral", self.keys())
+        self.write("viral.json", {"reels": []}, day=TODAY - dt.timedelta(days=20))
+        st = state.build_state(TODAY, checks=False)
+        viral = next(s for s in st["next"] if s["key"] == "viral")
+        self.assertIn("20 days old", viral["why"])
+        self.assertEqual(st["viral_age_days"], 20)
+
     def test_profile_score_only_after_setup_and_empty_ledger(self):
         self.setup_done()
         self.assertIn("profile_score", self.keys())
