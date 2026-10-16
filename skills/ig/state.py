@@ -122,7 +122,11 @@ def voice_status():
         return "missing"
     filled = 0
     for line in text.splitlines():
-        m = re.match(r"\s*-\s*\*\*[^*]+:\*\*\s*(.*)$", line)
+        # "- **Field:** value" (the template) or a plain "Field: value" line
+        m = (re.match(r"\s*-\s*\*\*[^*]+:\*\*\s*(.*)$", line)
+             or re.match(r"([A-Z][\w' ]{1,30}):\s+(.*)$", line))
+        if m and m.lastindex == 2:
+            m = re.match(r"(.*)", m.group(2))
         if m and m.group(1).strip() and not m.group(1).strip().startswith("("):
             filled += 1
     # A voice.md written by Claude from the user's reels may not use the

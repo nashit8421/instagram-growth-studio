@@ -202,6 +202,12 @@ class TestVoice(StateTest):
         self.write("voice.md", FILLED_VOICE)
         self.assertEqual(state.voice_status(), "filled")
 
+    def test_short_plain_voice_counts_as_filled(self):
+        # A voice.md Claude drafted from captions, with plain "Field: value" lines
+        self.write("voice.md", "# Voice\n\nWho: an actor in the making.\nLanguage: Hinglish.\n"
+                               "Tone: teasing, sassy.\nEmoji: 1-2 per caption.\n")
+        self.assertEqual(state.voice_status(), "filled")
+
     def test_free_text_counts(self):
         self.write("voice.md", "# Voice\n\n" + "I write short and plain sentences about contracts. " * 20)
         self.assertEqual(state.voice_status(), "filled")
