@@ -99,6 +99,33 @@ skip rate, non-follower %, average watch time. Output
 "likes":null,"comments":null,"shares":null,"saves":null,"follows":null,
 "skip_rate":null,"nonfollower_pct":null,"avg_watch_s":null}],"notes":""}`.
 
+### reels
+For viral research (/ig-viral): one account, fast. You are given a handle, a
+number of reels (default 10) and an output path. Work quickly: no commentary
+between calls.
+
+1. `browser_new_tab` at `https://www.instagram.com/<handle>/`. Call
+   `browser_text` with `maxChars` 1500 for the followers count. Call
+   `browser_links` with `match: "/reel/"`: those are the reel URLs, newest
+   first. If there are none yet, `browser_wait` 5 seconds and try once more.
+   (The account's /reels/ tab does not render in kweo; do not use it.)
+2. For each reel URL, up to the number asked: `browser_navigate` to it, then
+   `browser_text` with `maxChars` 1500. The page is a feed. Only the **first
+   block** is the reel you opened: its handle line, then the caption, then the
+   likes and the comment count as plain numbers ("167", "16.2K"). Every block
+   after it is someone else's reel: ignore them. Copy the numbers as shown.
+   Views only if the page says views or plays next to a number; otherwise
+   null. Never open anything else.
+
+Output, exactly these keys (`swipe.py --reader` reads them):
+```json
+{"handle":"","followers":null,"source":"kweo","scanned_at":"YYYY-MM-DD",
+ "reels":[{"url":"","likes":null,"comments":null,"views":null,"caption":"",
+           "sound":"","date":"YYYY-MM-DD"}],
+ "notes":""}
+```
+Keep `notes` to two lines.
+
 ### explore
 For trend research: read up to 15 reels from the URLs or pages given
 (an account's reels tab, a hashtag or audio page), capturing account,

@@ -31,8 +31,8 @@ TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 MODELED = ("reel", "carousel")    # formats that must copy a viral reel
 # Facts about the model reel. check --fix copies them from viral.json, so none is typed by hand.
-MODEL_FACTS = ("account", "url", "views", "multiple", "hook", "on_screen", "length_s", "formula",
-               "structure", "sound")
+MODEL_FACTS = ("account", "url", "metric", "views", "likes", "multiple", "hook", "on_screen", "length_s",
+               "formula", "structure", "sound")
 INVISIBLE = re.compile("[​-‏⁠﻿­]")
 EM_DASH = re.compile(r"\s*—\s*")
 
@@ -365,7 +365,8 @@ def plan_md(week):
         lines += ["", "COPIES  each post copies a reel that went viral"]
         for p in copies:
             m = p["model"]
-            views = f"{m['views']:,} views" if isinstance(m.get("views"), int) else ""
+            views = (f"{m['views']:,} views" if isinstance(m.get("views"), int)
+                     else f"{m['likes']:,} likes" if isinstance(m.get("likes"), int) else "")
             mult = f"{m['multiple']:g}x their usual" if isinstance(m.get("multiple"), (int, float)) else ""
             facts = ", ".join(x for x in (m.get("account"), views, mult) if x)
             lines.append(f"  {m['ref']}  {facts}{'  ' + m['url'] if m.get('url') else ''}  ->  "

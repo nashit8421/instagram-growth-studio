@@ -78,7 +78,7 @@ account supplies only the person, their situation and their facts.
 S=~/.claude/skills
 python3 $S/ig/week.py monday                  # the Monday to plan (Mon-Wed: this week, Thu-Sun: next)
 python3 $S/ig/week.py schema                  # the exact shape, filled in
-python3 $S/ig-viral/swipe.py "$KIT/captured.tsv" --out "$DATA/swipe.md"   # also writes $DATA/viral.json
+python3 $S/ig-viral/swipe.py --reader $KIT/reader-*.json --out "$DATA/swipe.md"   # also writes $DATA/viral.json
 python3 $S/ig/week.py check "$DATA/week.json" --fix --json   # --fix copies each model's facts from viral.json
 python3 $S/ig/week.py plan-md "$DATA/week.json"
 # the kit tools: drafts go in KIT=$DATA/.studio/kit/<week_of>/ (not the data folder itself)
@@ -104,10 +104,10 @@ it again. Do not read the scripts' source; the lines above are all you need.
 3. **Bottleneck.** Check in followers if there is no check-in today (scan
    count), then `grow.py report` and `grow.py plan`.
 4. **What is going viral.** If `viral.json` is missing or over 14 days old,
-   run /ig-viral in autopilot mode (its "Autopilot" section): pick the
-   accounts yourself, read their recent reels, write `captured.tsv` in the kit
-   folder and run `swipe.py`. Only numbers you saw on a page go in; a reel
-   whose views you could not see is left out.
+   run /ig-viral in autopilot mode (its "Autopilot" section): pick 5 to 7
+   accounts yourself, read each with an `ig-kweo-reader` "reels" job on
+   `model: "haiku"`, one at a time, then `swipe.py --reader`. About 15
+   minutes. Only numbers seen on a page go in.
 5. **Trends.** If `trends.md` is missing or over 7 days old, run /ig-trends
    (web search when kweo is off). Keep it to the few searches that matter.
 6. **The slots.** Follow /ig-plan: 4 to 5 posts, at least 3 reels, the type
@@ -120,9 +120,12 @@ it again. Do not read the scripts' source; the lines above are all you need.
    - `model`: `ref` (its id in viral.json), `copy` (what is copied, one line
      each: hook shape, structure, pace and cuts, tone, on-screen text,
      caption pattern), and `change` (what is the user's own). `check --fix`
-     fills in the account, link, views and multiple from viral.json; never
-     type those yourself. `why` says it plainly: "Copies @x's reel, 38x their
-     usual views."
+     fills in the account, link, views or likes and the multiple from
+     viral.json; never type those yourself. `why` says it plainly: "Copies
+     @x's reel, 22x their usual likes." Claim only what is known: the hook
+     line, the caption and the numbers come from the page. You have not
+     watched the video, so for pace and shots the first todo is to watch the
+     original (its link is on the post), unless viral.json has a structure.
    - **Copy the shape, never the reel.** Same hook grammar, same beats in the
      same order, same length within a few seconds, same energy. Never their
      words line for line, their footage or their edit: a re-upload or a

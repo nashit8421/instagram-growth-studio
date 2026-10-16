@@ -28,7 +28,7 @@
   function modelCard(p) {
     var m = p.model;
     if (!m || !m.ref) return null;
-    var facts = [m.views != null ? IG.compact(m.views) + " views" : null,
+    var facts = [m.views != null ? IG.compact(m.views) + " views" : m.likes != null ? IG.compact(m.likes) + " likes" : null,
       m.multiple ? IG.n(m.multiple, 1) + "× their usual" : null,
       m.length_s ? m.length_s + "s" : null].filter(Boolean).join(" · ");
     return h("section", { class: "model" },

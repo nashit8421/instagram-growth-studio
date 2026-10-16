@@ -201,7 +201,7 @@
         p.trial ? h("span", { class: "badge info", text: "trial" }) : null),
       h("div", { class: "pc-title", text: p.title }),
       p.model && p.model.ref ? h("div", { class: "pc-model" }, IG.icon("trends"),
-        h("span", { text: "Copies " + (p.model.account || p.model.ref) + (p.model.multiple ? " · " + IG.n(p.model.multiple, 1) + "× their usual views" : "") })) : null,
+        h("span", { text: "Copies " + (p.model.account || p.model.ref) + (p.model.multiple ? " · " + IG.n(p.model.multiple, 1) + "× their usual " + (p.model.metric || "views") : "") })) : null,
       hook.spoken || hook.on_screen ? h("div", { class: "pc-hook", text: IG.quote(hook.spoken || hook.on_screen) }) : null,
       h("div", { class: "pc-foot" }, stageDots(p),
         h("span", { class: "pc-next" + (stage === "posted" ? " ok" : ""), text: running ? "Director at work…" : next }, stage === "posted" ? null : IG.icon("arrow"))));

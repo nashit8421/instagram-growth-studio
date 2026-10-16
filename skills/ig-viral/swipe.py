@@ -24,10 +24,17 @@ post can copy the reel: url, on_screen, length (seconds), structure (the beats
 in one line), sound, cta, caption (its first line), lang, source
 (instagram/youtube), posted (YYYY-MM-DD).
 
+Or, from kweo: pass the files ig-kweo-reader's "reels" job wrote, one per
+account. The script works out each account's median itself. Instagram's web
+pages show likes but not views on other people's reels, so when most of an
+account's reels have no view count, that account is ranked on likes against
+its own median likes, and every row says which (`metric`).
+
 Usage
   python3 swipe.py captured.tsv
   python3 swipe.py captured.tsv --out "$(python3 ~/.claude/skills/ig-account/account.py path)/swipe.md"
   python3 swipe.py captured.tsv --json
+  python3 swipe.py --reader reader-*.json --out "$DATA/swipe.md"
 
 --out writes swipe.md and, next to it, viral.json: every reel with an id
 (V01 is the biggest outlier). IG Studio's planned posts point at those ids.
@@ -120,17 +127,85 @@ def read_rows(path):
         for k in ("followers", "median"):
             digits = re.sub(r"[^\d]", "", r.get(k, "") or "")
             r[k] = int(digits) if digits else None
+        r["metric"], r["count"] = "views", r["views"]
         if r["views"] and r.get("hook"):
             rows.append(r)
     return rows
 
 
+def count(x):
+    """12345, "12,345", "16.2K", "1.1M" -> int; anything else -> None. Never a guess."""
+    if isinstance(x, bool):
+        return None
+    if isinstance(x, (int, float)):
+        return int(x) if x >= 0 else None
+    m = re.fullmatch(r"\s*([\d,]+(?:\.\d+)?)\s*([KkMm]?)\s*", str(x or ""))
+    if not m:
+        return None
+    n = float(m.group(1).replace(",", ""))
+    return int(round(n * {"": 1, "k": 1e3, "m": 1e6}[m.group(2).lower()]))
+
+
+def first_line(caption):
+    """A caption's opening words, without hashtags and mentions: the hook when the spoken one is unknown."""
+    for line in str(caption or "").splitlines():
+        text = re.sub(r"[#@][^\s#@]+", "", line).strip(" .·•-")
+        text = re.sub(r"\s{2,}", " ", text)
+        if text:
+            return text[:160]
+    return ""
+
+
+def read_reader(paths):
+    """Rows from ig-kweo-reader "reels" jobs, one JSON file per account.
+
+    The median is the middle of that account's own reels (3 or more needed).
+    Views when most reels show them, else likes. A reel without the number is
+    left out; nothing is filled in.
+    """
+    rows, notes = [], []
+    for path in paths:
+        try:
+            d = json.load(open(path, encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            notes.append(f"{path}: unreadable ({e})")
+            continue
+        if not isinstance(d, dict):
+            continue
+        reels = [r for r in d.get("reels") or d.get("posts") or [] if isinstance(r, dict)]
+        # the handle at the top, or on the reels (readers do not always put it in the same place)
+        handle = str(d.get("handle") or next((r.get("account") or r.get("handle") for r in reels
+                                                if r.get("account") or r.get("handle")), "")).strip().lstrip("@")
+        with_views = [r for r in reels if count(r.get("views")) is not None]
+        metric = "views" if reels and len(with_views) * 2 >= len(reels) else "likes"
+        vals = [count(r.get(metric)) for r in reels if count(r.get(metric)) is not None]
+        median = int(statistics.median(vals)) if len(vals) >= 3 else None
+        if median is None:
+            notes.append(f"@{handle}: fewer than 3 reels with {metric}, no median")
+        for r in reels:
+            n = count(r.get(metric))
+            hook = str(r.get("hook") or "").strip() or first_line(r.get("first_line")) or first_line(r.get("caption"))
+            if n is None or not hook:
+                continue
+            row = {"account": "@" + handle if handle else "", "followers": count(d.get("followers")),
+                   "median": median, "metric": metric, "count": n, "views": count(r.get("views")),
+                   "likes": count(r.get("likes")), "comments": count(r.get("comments")), "hook": hook,
+                   "url": r.get("url") or "", "caption": first_line(r.get("caption")),
+                   "on_screen": r.get("on_screen") or "", "sound": r.get("sound") or r.get("audio") or "",
+                   "length": r.get("length_s") or "", "posted": r.get("date") or "", "source": "instagram"}
+            rows.append(row)
+    return rows, notes
+
+
 def analyse(rows, formulas):
     used_median = any(r.get("median") for r in rows)
     for r in rows:
-        base = r.get("median") or r.get("followers") or 0
+        r.setdefault("metric", "views")
+        r.setdefault("count", r.get("views"))
+        # Followers are a baseline for views only; likes need the account's own median.
+        base = r.get("median") or (r.get("followers") if r["metric"] == "views" else None) or 0
         r["baseline"] = base
-        r["outlier"] = round(r["views"] / base, 2) if base else None
+        r["outlier"] = round(r["count"] / base, 2) if base else None
         r["formula_id"], r["formula"] = classify(r["hook"], formulas)
         r["words"] = len(WORD_RE.findall(r["hook"]))
         if score_hook:
@@ -175,7 +250,7 @@ def render(a, out=sys.stdout):
         score = f"{r['hook_score']:.0f}" if r["hook_score"] is not None else " -"
         fid = f"#{r['formula_id']:<2}" if r["formula_id"] else "-  "
         print(f"  {r['id']} {mult:>7}  hook {score:>3}  {fid} {r['formula'][:22]:<22} "
-              f"{r.get('account', '')[:16]:<16} {r['views']:>9,}", file=out)
+              f"{r.get('account', '')[:16]:<16} {r['count']:>9,} {r['metric']}", file=out)
         print(f"           \"{r['hook'][:96]}\"", file=out)
     print("-" * max(len(head), 78), file=out)
     print("WHAT IS WORKING IN THIS BATCH", file=out)
@@ -201,7 +276,7 @@ def to_markdown(a):
     for r in a["reels"]:
         mult = f"{r['outlier']:.1f}x" if r["outlier"] else "?"
         lines += [f"## {r['id']}  {mult}  {r['formula']}  ({r.get('account', '')})",
-                  f"- views: {r['views']:,}  baseline: {r['baseline']:,}",
+                  f"- {r['metric']}: {r['count']:,}  baseline: {r['baseline']:,}",
                   f"- hook score: {r['hook_score']}  words: {r['words']}",
                   f"- hook: \"{r['hook']}\""]
         for k in ("on_screen", "length", "structure", "sound", "cta", "url"):
@@ -219,7 +294,8 @@ def to_viral(a, today=None):
     reels = []
     for r in a["reels"]:
         row = {"id": r["id"], "account": r.get("account") or "", "followers": r.get("followers"),
-               "median": r.get("median"), "views": r["views"], "multiple": r["outlier"],
+               "median": r.get("median"), "metric": r["metric"], "views": r.get("views"),
+               "likes": count(r.get("likes")), "comments": count(r.get("comments")), "multiple": r["outlier"],
                "hook": r["hook"], "formula_id": r["formula_id"], "formula": r["formula"],
                "hook_score": r["hook_score"], "words": r["words"]}
         digits = re.sub(r"[^\d.]", "", str(r.get("length") or ""))
@@ -237,12 +313,20 @@ def to_viral(a, today=None):
 def main():
     ap = argparse.ArgumentParser(description="Rank collected reels by outlier multiple.")
     ap.add_argument("input", nargs="?", default="-", help="TSV file, or - for stdin")
+    ap.add_argument("--reader", nargs="+", metavar="JSON",
+                    help="ig-kweo-reader 'reels' outputs, one per account, instead of a TSV")
     ap.add_argument("--hooks", default=HOOKS, help="path to ig-reel/hooks.json")
     ap.add_argument("--out", help="also write the swipe file as markdown here")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
-    rows = read_rows(args.input)
+    notes = []
+    if args.reader:
+        rows, notes = read_reader(args.reader)
+    else:
+        rows = read_rows(args.input)
+    for n in notes:
+        print("note:", n, file=sys.stderr)
     if not rows:
         print("no usable rows. Need a tab-separated file with at least views and hook.",
               file=sys.stderr)

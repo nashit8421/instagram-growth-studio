@@ -66,5 +66,76 @@ class TestViralJson(unittest.TestCase):
         self.assertTrue(all(r["id"].startswith("V") for r in v["reels"]))
 
 
+def reader_file(tmp, handle, reels, followers=5000):
+    path = os.path.join(tmp, f"reader-{handle}.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"handle": handle, "followers": followers, "source": "kweo", "reels": reels}, f)
+    return path
+
+
+class TestReader(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+
+    def test_likes_when_views_are_hidden_and_median_from_own_reels(self):
+        reels = [{"url": f"https://www.instagram.com/reel/R{i}/", "likes": n, "comments": 3,
+                  "caption": f"Reel number {i} #dadlife"} for i, n in enumerate([100, 120, 90, 2400, 110])]
+        reels.append({"url": "https://www.instagram.com/reel/NOLIKES/", "caption": "no count shown"})
+        rows, notes = swipe.read_reader([reader_file(self.tmp, "dad_a", reels)])
+        self.assertEqual(len(rows), 5)                      # the reel with no number is left out
+        self.assertTrue(all(r["metric"] == "likes" and r["median"] == 110 for r in rows))
+        a = swipe.analyse(rows, swipe.load_formulas(swipe.HOOKS))
+        v = swipe.to_viral(a)
+        top = v["reels"][0]
+        self.assertEqual(top["url"], "https://www.instagram.com/reel/R3/")
+        self.assertEqual(top["likes"], 2400)
+        self.assertIsNone(top["views"])
+        self.assertEqual(top["metric"], "likes")
+        self.assertEqual(top["multiple"], round(2400 / 110, 2))
+        self.assertEqual(top["hook"], "Reel number 3")      # caption's first line, hashtags dropped
+
+    def test_views_win_when_most_reels_show_them(self):
+        reels = [{"url": f"u{i}", "views": v, "likes": 5, "caption": "x"} for i, v in enumerate(["1.2K", "16.2K", "900", "1,100"])]
+        rows, _ = swipe.read_reader([reader_file(self.tmp, "b", reels)])
+        self.assertTrue(all(r["metric"] == "views" for r in rows))
+        self.assertEqual(sorted(r["count"] for r in rows), [900, 1100, 1200, 16200])
+
+    def test_too_few_reels_means_no_baseline_not_followers(self):
+        reels = [{"url": "u1", "likes": 5000, "caption": "big one"}, {"url": "u2", "likes": 10, "caption": "small"}]
+        rows, notes = swipe.read_reader([reader_file(self.tmp, "c", reels, followers=100)])
+        self.assertTrue(any("fewer than 3" in n for n in notes))
+        a = swipe.analyse(rows, None)
+        self.assertTrue(all(r["outlier"] is None for r in a["reels"]))   # likes / followers is not a multiple
+
+    def test_handle_and_audio_from_the_reels(self):
+        path = os.path.join(self.tmp, "r.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"source": "kweo", "reels": [{"account": "zara.abbasi22", "url": f"u{i}", "likes": n,
+                                                     "first_line": "line", "audio": "Badshah • Therapy"}
+                                                    for i, n in enumerate([5, 6, 70])]}, f)
+        rows, _ = swipe.read_reader([path])
+        self.assertEqual({r["account"] for r in rows}, {"@zara.abbasi22"})
+        self.assertEqual(rows[0]["sound"], "Badshah • Therapy")
+
+    def test_count_parsing(self):
+        self.assertEqual(swipe.count("16.2K"), 16200)
+        self.assertEqual(swipe.count("1.1M"), 1100000)
+        self.assertEqual(swipe.count("12,345"), 12345)
+        self.assertIsNone(swipe.count("about 5k views"))
+        self.assertIsNone(swipe.count(None))
+        self.assertIsNone(swipe.count(True))
+
+    def test_cli_reader_writes_viral_json(self):
+        reels = [{"url": f"https://www.instagram.com/reel/R{i}/", "likes": n, "caption": f"line {i}"}
+                 for i, n in enumerate([10, 12, 300])]
+        f = reader_file(self.tmp, "d", reels)
+        out = os.path.join(self.tmp, "acct", "swipe.md")
+        r = subprocess.run([sys.executable, SWIPE, "--reader", f, "--out", out], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        v = json.load(open(os.path.join(self.tmp, "acct", "viral.json"), encoding="utf-8"))
+        self.assertEqual(v["reels"][0]["likes"], 300)
+        self.assertIn("- likes: 300", open(out, encoding="utf-8").read())
+
+
 if __name__ == "__main__":
     unittest.main()

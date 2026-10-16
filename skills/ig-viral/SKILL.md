@@ -214,19 +214,22 @@ accounts yourself, read, rank, write. About 10 minutes.
    `swipe.md` and `engaged.md` if they exist, the niche's hashtag pages, and a
    web search like "viral <niche> reels <region> <month year>". Bigger than
    the user is fine here: this is for the format, not the cadence.
-2. **Read them.** With kweo, use the `ig-kweo-reader` agent, one account per
-   job and one job at a time: "@x: followers, and the last 12 reels with view
-   counts and links". The account's median is the middle of those 12. For
-   the 2 or 3 reels per account that beat their median most, open the reel
-   for the hook (spoken if a transcript or captions show it, else the
-   on-screen text, else the caption's first line), length, sound, the
-   caption's first line and the structure in one line.
+2. **Read them, fast.** With kweo, start the `ig-kweo-reader` agent with
+   `model: "haiku"`, one account per job and one job at a time, with the
+   prompt: `reels job: @<handle>, 10 reels, write $KIT/reader-<handle>.json`
+   (`KIT` is `$DATA/.studio/kit/<week>/`). Each job takes a few minutes.
+   Read 5 to 7 accounts, and stop starting new ones after 15 minutes.
+   Instagram's web pages show likes, not views, on other people's reels, so
+   the ranking is likes against the account's own median likes. That is
+   fine and the files say so.
    Without kweo: web search and public pages only, and YouTube Shorts with
-   `yt_dlp` if it is installed (`source` youtube). Same fields.
-3. **Rank.** Write `captured.tsv` in the kit folder (`$DATA/.studio/kit/<week>/`)
-   and run `swipe.py captured.tsv --out "$DATA/swipe.md"`. That writes
-   `viral.json` with an id per reel (V01 is the biggest outlier). Aim for 20+
-   reels across 6+ accounts; with fewer, say so in the week's assumptions.
+   `yt_dlp` if it is installed (`source` youtube), into `captured.tsv`.
+3. **Rank.** `swipe.py --reader $KIT/reader-*.json --out "$DATA/swipe.md"`
+   (or `swipe.py $KIT/captured.tsv --out ...` for the TSV). It works out each
+   account's median itself and writes `viral.json` with an id per reel (V01
+   is the biggest outlier). The hook is the caption's first line unless you
+   saw the spoken line or on-screen text. Aim for 30+ reels across 5+
+   accounts; with fewer, say so in the week's assumptions.
 4. **Never invent a row.** Views and a baseline you did not see on a page
    mean the reel is left out. A short honest list beats a long made-up one.
 

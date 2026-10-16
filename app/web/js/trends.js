@@ -156,13 +156,13 @@
         return;
       }
       sub.textContent = r.reels.length + " reels" + (r.accounts ? " from " + r.accounts + " accounts" : "") +
-        ", ranked by how far each beat its own account's usual views. Found " + IG.date(r.made) + ".";
+        ", ranked by how far each beat its own account's usual views (likes where Instagram hides the views). Found " + IG.date(r.made) + ".";
       list.appendChild(h("ol", { class: "viral" }, r.reels.map(function (x) {
         return h("li", null,
-          h("span", { class: "vx", title: "Times its account's usual views", text: x.multiple ? IG.n(x.multiple, 1) + "×" : "–" }),
+          h("span", { class: "vx", title: "Times its account's usual " + (x.metric || "views"), text: x.multiple ? IG.n(x.multiple, 1) + "×" : "–" }),
           h("div", { class: "grow" },
             h("div", { class: "vh", text: IG.quote(x.hook) }),
-            h("div", { class: "small muted", text: [x.account, IG.compact(x.views) + " views", x.formula && x.formula !== "unclassified" ? x.formula : null, x.length_s ? x.length_s + "s" : null].filter(Boolean).join(" · ") }),
+            h("div", { class: "small muted", text: [x.account, x.views != null ? IG.compact(x.views) + " views" : x.likes != null ? IG.compact(x.likes) + " likes" : null, x.formula && x.formula !== "unclassified" ? x.formula : null, x.length_s ? x.length_s + "s" : null].filter(Boolean).join(" · ") }),
             x.structure ? h("div", { class: "small faint", text: x.structure }) : null),
           x.url ? h("a", { class: "btn sm ghost", href: x.url, target: "_blank", rel: "noopener noreferrer", text: "Watch" }) : null);
       })));

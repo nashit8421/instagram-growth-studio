@@ -28,7 +28,9 @@ VIRAL = {"version": 1, "made": "2026-10-16", "reels": [
     {"id": "V01", "account": "@someone", "views": 412000, "multiple": 38.4, "median": 10700,
      "hook": "1 line, 3 emotions. Which one was real?", "formula": "Cold Open Demo",
      "url": "https://www.instagram.com/reel/AAA/", "length_s": 21, "followers": 48000},
-    {"id": "V02", "account": "@other", "views": 90000, "multiple": 6.0, "hook": "stop doing this"}]}
+    {"id": "V02", "account": "@other", "views": 90000, "multiple": 6.0, "hook": "stop doing this"},
+    {"id": "V03", "account": "@dad_a", "metric": "likes", "views": None, "likes": 2400, "multiple": 21.82,
+     "hook": "Reel number 3"}]}
 
 
 def viral():
@@ -166,6 +168,15 @@ class TestModel(unittest.TestCase):
         self.assertNotIn("url", m)
         self.assertNotIn("length_s", m)
         self.assertEqual(m["views"], 90000)
+
+    def test_likes_model_shows_likes_in_plan(self):
+        w = example()
+        w["posts"][0]["model"]["ref"] = "V03"
+        fixed, _ = week.fix(w, viral())
+        m = fixed["posts"][0]["model"]
+        self.assertEqual((m["metric"], m["likes"]), ("likes", 2400))
+        self.assertNotIn("views", m)                         # null in viral.json stays out
+        self.assertIn("@dad_a, 2,400 likes, 21.82x their usual", week.plan_md(fixed))
 
     def test_one_model_for_many_posts_is_a_warning(self):
         w = example()
