@@ -18,7 +18,11 @@ eyeball this.
 python3 humanize.py draft.txt --report        # clean it, show what changed
 python3 detect.py draft.txt                    # score it, five checks
 python3 detect.py before.txt after.txt         # prove the delta
+python3 detect.py draft.txt --gate             # exit 1 unless PASS, for scripts
 ```
+
+A REVIEW or FAIL verdict is a result, not an error: the script exits 0 and
+the report says what to fix. Read the verdict, do not treat it as a crash.
 
 Both read `slop.json`: 154 stock words and phrases with plain-English
 replacements, 18 invisible character classes, 11 typographic substitutions and

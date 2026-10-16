@@ -260,6 +260,7 @@ def main():
     ap.add_argument("compare", nargs="?", help="second file, to show before/after")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--lexicon", default=LEX)
+    ap.add_argument("--gate", action="store_true", help="exit 1 unless the verdict is PASS (for scripts and CI)")
     args = ap.parse_args()
 
     lex = json.load(open(args.lexicon, encoding="utf-8"))
@@ -292,7 +293,9 @@ def main():
         print(f"  {a['human_score']:.1f} {a['verdict']}  ->  "
               f"{b['human_score']:.1f} {b['verdict']}   ({delta:+.1f})\n")
 
-    sys.exit(0 if payload[-1]["verdict"] == "PASS" else 1)
+    # A finished report is a success, whatever the verdict: a non-zero exit made REVIEW and
+    # FAIL look like the script had crashed. --gate keeps the old pass/fail exit for scripts.
+    sys.exit(1 if args.gate and payload[-1]["verdict"] != "PASS" else 0)
 
 
 if __name__ == "__main__":
