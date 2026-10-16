@@ -71,7 +71,7 @@ EXAMPLE = {
     }],
     "stories": [{"day": "MON", "frames": ["Behind the scenes of today's shoot", "Poll: which take?"],
                  "sticker": "poll: 1 / 2 / 3"}],
-    "engage": {"minutes": 20, "when": "before each post",
+    "engage": {"minutes": 20, "when": "before each post",   # when: no minutes in it, they are above
                "kinds": [{"kind": "reach", "count": 5, "who": "bigger creators your audience follows"},
                          {"kind": "peers", "count": 3, "who": "same size, same field"},
                          {"kind": "buyers", "count": 2, "who": "brands or casting pages"}],
@@ -282,7 +282,9 @@ def plan_md(week):
             lines.append(f"  {s.get('day', '')}  {frames}" + (f"  [{s['sticker']}]" if s.get("sticker") else ""))
     eng = week.get("engage") or {}
     if eng:
-        lines += ["", f"ENGAGE  {eng.get('minutes', 20)} min {eng.get('when', 'before each post')}, by hand"]
+        when = str(eng.get("when") or "before each post")
+        lead = when if re.search(r"\bmin", when) else f"{eng.get('minutes', 20)} min {when}"
+        lines += ["", f"ENGAGE  {lead}, by hand"]
         for k in eng.get("kinds") or []:
             lines.append(f"  {k.get('kind')}: {k.get('count', '')} {k.get('who', '')}".rstrip())
         if eng.get("accounts"):

@@ -225,7 +225,9 @@
   function engageCard(week) {
     var e = week.engage;
     if (!e) return null;
-    return IG.card("The comment round", (e.minutes || 20) + " minutes " + (e.when || "before each post") + ", by hand. Real comments, not emoji.",
+    var when = String(e.when || "before each post");
+    var lead = /\bmin/i.test(when) ? IG.cap(when) : (e.minutes || 20) + " minutes " + when;
+    return IG.card("The comment round", lead + ", by hand. Real comments, not emoji.",
       h("div", { class: "stack-sm" },
         h("ul", { class: "plain" }, (e.kinds || []).map(function (k) {
           return h("li", null, h("b", { text: (k.count || "") + " " + k.kind }), " · " + (k.who || ""));

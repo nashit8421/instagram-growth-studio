@@ -67,12 +67,22 @@ user nothing. IG Studio's home screen shows the result, so the deliverable is
 a file, `week.json`, not a chat message. Budget: one run, about 10 minutes.
 
 ```bash
-W=~/.claude/skills/ig/week.py
-python3 $W monday                 # the Monday to plan (Mon-Wed: this week, Thu-Sun: next)
-python3 $W schema                 # the exact shape, filled in
-python3 $W check "$DATA/week.json" --fix --json
-python3 $W plan-md "$DATA/week.json"
+S=~/.claude/skills
+python3 $S/ig/week.py monday                  # the Monday to plan (Mon-Wed: this week, Thu-Sun: next)
+python3 $S/ig/week.py schema                  # the exact shape, filled in
+python3 $S/ig/week.py check "$DATA/week.json" --fix --json
+python3 $S/ig/week.py plan-md "$DATA/week.json"
+# the kit tools: drafts go in $DATA/.studio/kit/<week_of>/ (not the data folder itself)
+python3 $S/ig-reel/hookscore.py FILE --json   # one hook per line; exit 1 = best hook under 70
+python3 $S/ig-reel/beats.py FILE --target 25 --json      # one line per beat
+python3 $S/ig-caption/caption.py FILE --json  # exit 1 = verdict not READY
+python3 $S/ig-human/humanize.py FILE --json   # {text, report}
+python3 $S/ig-human/detect.py FILE --json     # human score; aim for 70+
+python3 $S/ig-audio/audio.py suggest --reel-length 25 --mood dramatic --account creator --voiceover yes --region IN --json
 ```
+
+Exit code 1 from hookscore or caption means "weak", not "broken": rewrite and run
+it again. Do not read the scripts' source; the lines above are all you need.
 
 1. **Where are we.** `state.py --json`. Read `account.md`, `voice.md`,
    `profile.json`, `trends.md`, `swipe.md` if they exist.
@@ -90,7 +100,9 @@ python3 $W plan-md "$DATA/week.json"
    without asking anyone:
    - `hook`: the spoken first line and the on-screen text, from /ig-reel's
      formulas. Score 3 to 5 candidates with `ig-reel/hookscore.py` and keep
-     the best; put its score in `hook.score`.
+     the best; put its score in `hook.score`. The scorer reads English: for
+     a Hinglish or other non-English voice, keep the hook in the account's
+     own language and treat the score as a guide, not a gate.
    - `script`: timed beats (`t`, `say`, `on_screen`, `shot`). Time it with
      `ig-reel/beats.py`. Reels 15 to 35 seconds unless the idea needs more.
    - `direction`: the director's notes for filming on a phone, in the same
