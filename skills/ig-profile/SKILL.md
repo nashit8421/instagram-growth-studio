@@ -50,6 +50,16 @@ PROFILE SCORE  38/100
 
 ## Then rewrite, in this order
 
+**Position on the essence, not on one post.** An account's identity is who
+is in it, the relationship, and the feeling people come back for ("a dad and
+his toddler, everyday fun"). The niche the user gave, in their own words
+(`niche` in the profile, or what they said), is the anchor and beats any
+keyword guess. One post's joke, caption line or catchphrase is a content
+angle, never the identity: it does not go in the name field, the bio's
+promise, the grid theme or the niche line. That goes double with fewer than
+10 posts, and triple when that post underperformed. Broad promise up top;
+the specific jokes go in the reels.
+
 Fix in descending order of points lost. Do not rewrite everything at once, the
 user has to actually go and change each of these.
 

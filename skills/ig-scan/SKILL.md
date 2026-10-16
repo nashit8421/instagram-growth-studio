@@ -177,13 +177,24 @@ it is.
 Then **read `account.md` and a dozen of the actual captions**, and replace
 the placeholder under `## Claude's read` with five short lines:
 
-- Niche, in one line (the user's words if they gave them)
+- Niche, in one line (the user's words if they gave them): the broad
+  essence, never one post's theme
 - Audience: who, where, what language
 - What the account is for: sell, leads, personal brand, community
 - What is working, with the numbers that show it
 - Three opportunities that fit this account, each tied to a finding
 
 `analyze` keeps that section on every rescan.
+
+**Position on the essence, not on one post.** An account's identity is who
+is in it, the relationship, and the feeling people come back for ("a dad and
+his toddler, everyday fun"). The niche the user gave, in their own words
+(`niche` in the profile, or what they said), is the anchor and beats any
+keyword guess. One post's joke, caption line or catchphrase is a content
+angle, never the identity: it does not go in the name field, the bio's
+promise, the grid theme or the niche line. That goes double with fewer than
+10 posts, and triple when that post underperformed. Broad promise up top;
+the specific jokes go in the reels.
 
 ## Step 3. Show, confirm, hand off
 

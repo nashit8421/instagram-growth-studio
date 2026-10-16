@@ -81,6 +81,10 @@ change. Everything between those points runs without asking.
   present. If kweo is not connected, say once how to connect it
   (`kweo_check.py` prints the steps) and carry on with web search.
 - **Never invent numbers.** Unknown proof stays `{{your number}}`.
+- **Position on the essence, not on one post.** The account is who is in it,
+  their relationship and the feeling, in the user's own niche words. One
+  post's joke is a content angle, never the bio, name, grid theme or niche,
+  least of all from a handful of posts.
 - **No promises of virality.** The pack improves the odds and measures what
   works. Say that once, not every turn.
 - All files live in the active account's data folder. `state.py` and every
