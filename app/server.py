@@ -2793,6 +2793,89 @@ def api_scan_prefill(h, body):
 SID_RE = re.compile(r"[0-9a-fA-F-]{8,64}")
 
 
+# Assistant history lives with the account, not only in one browser: a run started from
+# anywhere (another browser, a script, a page that was closed mid-run) still shows up.
+CHAT_LOG_MAX = 60
+_chat_log_lock = threading.Lock()
+
+
+def chat_log_path():
+    return os.path.join(data_dir(), ".studio", "chat.json")
+
+
+def chat_log_read(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def chat_log_put(path, entry):
+    with _chat_log_lock:
+        current = chat_log_read(path)
+        rows = [r for r in current if r.get("job") != entry["job"]]
+        old = next((r for r in current if r.get("job") == entry["job"]), {})
+        rows.append({**old, **entry})
+        rows.sort(key=lambda r: r.get("started") or 0)
+        rows = rows[-CHAT_LOG_MAX:]
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(rows, f, ensure_ascii=False)
+        os.replace(tmp, path)
+
+
+def chat_summary(job):
+    """The finished run as the Assistant shows it: reply text, steps, files."""
+    text, tools, files, sid, status, error = [], [], [], None, job.status, None
+    for ev in list(job.events):
+        t = ev.get("type")
+        if t == "text":
+            text.append(ev.get("text") or "")
+        elif t == "tool":
+            tools.append({"id": ev.get("id"), "summary": ev.get("summary"), "sub": ev.get("sub")})
+        elif t == "tool_done":
+            for x in tools:
+                if x["id"] == ev.get("id"):
+                    x["done"], x["error"] = True, bool(ev.get("error"))
+        elif t == "file":
+            if not any(f["path"] == ev.get("path") for f in files):
+                files.append({"path": ev.get("path"), "name": ev.get("name"), "kind": ev.get("kind")})
+        elif t == "session":
+            sid = ev.get("session_id") or sid
+        elif t == "end":
+            sid = ev.get("session_id") or sid
+            status = ev.get("status") or status
+            error = ev.get("error")
+    return {"text": "".join(text), "tools": tools, "files": files, "session_id": sid, "status": status,
+            "error": error, "ended": time.time()}
+
+
+def run_chat_job_logged(job, server, prompt, session_id, log_path):
+    try:
+        run_chat_job(job, server, prompt, session_id)
+    finally:
+        try:
+            chat_log_put(log_path, {"job": job.id, **chat_summary(job)})
+        except OSError:
+            pass
+
+
+@route("GET", "/api/chat/history")
+def api_chat_history(h, body):
+    rows = chat_log_read(chat_log_path())
+    for r in rows:
+        if r.get("status") == "running":
+            j = h.server.jobs.get(r.get("job"))
+            if j is None:
+                r.update(status="error", error="IG Studio was restarted before this reply finished.")
+            elif j.done:
+                r.update(chat_summary(j))
+    return {"entries": rows}
+
+
 @route("POST", "/api/chat")
 def api_chat(h, body):
     prompt = body.get("prompt")
@@ -2812,7 +2895,14 @@ def api_chat(h, body):
     if not find_claude():
         raise ApiError(503, "Claude Code is not installed.", {"install": "https://claude.com/claude-code"})
     job = h.new_job("chat", prompt[:60])
-    start_thread(run_chat_job, job, h.server, prompt, sid)
+    log_path = chat_log_path()
+    try:
+        chat_log_put(log_path, {"job": job.id, "started": time.time(), "prompt": str(body.get("prompt")).strip(),
+                                "attachments": [{"path": p, "name": os.path.basename(p)} for p in files],
+                                "status": "running"})
+    except OSError:
+        pass
+    start_thread(run_chat_job_logged, job, h.server, prompt, sid, log_path)
     return {"job": job.id}
 
 

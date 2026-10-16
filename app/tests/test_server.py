@@ -666,3 +666,45 @@ class DirectTests(Base):
         self.assertEqual(server.tool_summary("Bash", {"command": "python3 ~/.claude/skills/ig-direct/direct.py storyboard /x --preview"}),
                          "Rendering the storyboard")
         self.assertEqual(server.tool_summary("Agent", {"subagent_type": "ig-kweo-reader"}), "Starting helper: ig-kweo-reader")
+
+
+class ChatHistoryTests(Base):
+    def test_runs_are_saved_with_the_account_and_listed(self):
+        img = os.path.join(server.data_dir(), "uploads", "prof.png")
+        os.makedirs(os.path.dirname(img), exist_ok=True)
+        with open(img, "wb") as f:
+            f.write(b"png")
+        st, j, _, _ = self.req("POST", "/api/chat", {"prompt": "score these hooks", "attachments": [img]})
+        self.assertEqual(st, 200, j)
+        st, h, _, _ = self.req("GET", "/api/chat/history")
+        row = [r for r in h["entries"] if r["job"] == j["job"]][0]
+        self.assertEqual(row["prompt"], "score these hooks")                 # the user's words, not the file note
+        self.assertEqual(row["attachments"][0]["path"], os.path.realpath(img))
+        self.events(j["job"])
+        for _ in range(50):                                                   # the log is written as the run ends
+            st, h, _, _ = self.req("GET", "/api/chat/history")
+            row = [r for r in h["entries"] if r["job"] == j["job"]][0]
+            if row["status"] != "running":
+                break
+            time.sleep(0.1)
+        self.assertEqual(row["status"], "done")
+        self.assertEqual(row["text"], "Hook A wins with 87.")
+        self.assertTrue(row["session_id"])
+        self.assertTrue(any(t["summary"] == "Running hookscore.py" and t["done"] for t in row["tools"]))
+        self.assertTrue(os.path.isfile(os.path.join(server.data_dir(), ".studio", "chat.json")))
+
+    def test_a_run_lost_to_a_restart_is_marked(self):
+        server.chat_log_put(server.chat_log_path(), {"job": "deadbeefdeadbeef", "started": time.time(),
+                                                     "prompt": "x", "status": "running"})
+        st, h, _, _ = self.req("GET", "/api/chat/history")
+        row = [r for r in h["entries"] if r["job"] == "deadbeefdeadbeef"][0]
+        self.assertEqual(row["status"], "error")
+        self.assertIn("restarted", row["error"])
+
+    def test_history_is_capped(self):
+        p = os.path.join(self.tmp, "cap-test", "chat.json")
+        for k in range(server.CHAT_LOG_MAX + 5):
+            server.chat_log_put(p, {"job": f"j{k:04d}", "started": 1000 + k, "prompt": str(k), "status": "done"})
+        rows = server.chat_log_read(p)
+        self.assertEqual(len(rows), server.CHAT_LOG_MAX)
+        self.assertEqual(rows[-1]["job"], f"j{server.CHAT_LOG_MAX + 4:04d}")

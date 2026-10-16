@@ -12,7 +12,7 @@
     ["Fix my profile", "/ig-profile Score my profile and rewrite what loses points. (Attach a screenshot of the top of your profile.)"],
     ["Check a reel", "/ig-perf Check how my latest reel is doing. (Attach an insights screenshot if you have one.)"]
   ];
-  var chat = IG.chat = { key: null, session_id: null, messages: [], job: null, stream: null, running: false };
+  var chat = IG.chat = { key: null, session_id: null, messages: [], job: null, stream: null, running: false, cleared: 0 };
   var ui = null; // {log, input, sendBtn, stopBtn, attachList, pending: []}
 
   function storeKey() { return "igchat:" + chat.key; }
@@ -25,22 +25,58 @@
         if (c.running) { c.running = false; c.error = c.error || "Stopped when the page was closed."; }
         return c;
       });
-      localStorage.setItem(storeKey(), JSON.stringify({ session_id: chat.session_id, messages: msgs }));
+      localStorage.setItem(storeKey(), JSON.stringify({ session_id: chat.session_id, messages: msgs, cleared: chat.cleared }));
     } catch (e) { /* storage is a convenience */ }
   }
   function load() {
     var key = IG.accountKey();
-    if (chat.key === key) return Promise.resolve();
+    if (chat.key === key) {          // same account: just pick up runs saved since
+      if (chat.running) return Promise.resolve();
+      return IG.get("/api/chat/history").then(function (r) { merge((r && r.entries) || []); }, function () { /* keep what we have */ })
+        .then(signFiles);
+    }
     if (chat.stream) { chat.stream.stop(); chat.stream = null; }
-    chat.key = key; chat.session_id = null; chat.messages = []; chat.running = false; chat.job = null;
+    chat.key = key; chat.session_id = null; chat.messages = []; chat.running = false; chat.job = null; chat.cleared = 0;
     var d = null;
     try { d = JSON.parse(localStorage.getItem(storeKey()) || "null"); } catch (e) { d = null; }
-    if (!d) return Promise.resolve();
-    chat.session_id = d.session_id || null;
-    chat.messages = d.messages || [];
+    if (d) { chat.session_id = d.session_id || null; chat.messages = d.messages || []; chat.cleared = d.cleared || 0; }
+    return IG.get("/api/chat/history").then(function (r) { merge((r && r.entries) || []); }, function () { /* offline: local copy only */ })
+      .then(signFiles);
+  }
+  /* Runs saved by IG Studio: ones this browser never saw (started elsewhere, or the page was
+     closed mid-run) are added, and a run still going is picked up live. */
+  function merge(entries) {
+    var byJob = {};
+    chat.messages.forEach(function (m) { if (m.job && m.role === "bot") byJob[m.job] = m; });
+    var added = false;
+    entries.forEach(function (e) {
+      if (!e.job || (e.started || 0) * 1000 <= chat.cleared) return;
+      var bot = byJob[e.job];
+      if (!bot) {
+        chat.messages.push({ role: "user", text: e.prompt || "", attachments: e.attachments || [], job: e.job });
+        bot = { role: "bot", job: e.job, text: "", tools: [], files: [] };
+        chat.messages.push(bot);
+        added = true;
+      } else if (!bot.error && e.status !== "running") return;          // this browser already has it
+      bot.running = e.status === "running";
+      if (!bot.running) {
+        bot.text = e.text || ""; bot.tools = e.tools || []; bot.files = e.files || []; bot.status = e.status;
+        bot.error = e.status === "done" ? null : (e.status === "cancelled" ? "Stopped." : (e.error || "Claude stopped."));
+      }
+      if (e.session_id) chat.session_id = e.session_id;
+    });
+    var live = chat.messages.filter(function (m) { return m.role === "bot" && m.running && m.job; }).pop();
+    if (live) {
+      live.text = ""; live.tools = []; live.files = []; live.error = null;
+      chat.running = true; chat.job = live.job;
+      chat.stream = IG.stream(live.job, function (ev) { onEvent(live, ev); });
+    }
+    if (added || live) save();
+  }
+  function signFiles() {
     var paths = [];
     chat.messages.forEach(function (m) { (m.files || []).concat(m.attachments || []).forEach(function (f) { if (f.path) paths.push(f.path); }); });
-    if (!paths.length) return Promise.resolve();
+    if (!paths.length) return;
     return IG.post("/api/sign", { paths: paths }).then(function (r) {
       chat.messages.forEach(function (m) {
         (m.files || []).concat(m.attachments || []).forEach(function (f) { var u = r.urls[f.path]; if (u) { f.url = u.url; f.download = u.download; } else f.gone = true; });
@@ -140,8 +176,10 @@
     chat.running = true;
     renderLog();
     save();
+    var user = chat.messages[chat.messages.length - 2];
     IG.post("/api/chat", { prompt: text, session_id: chat.session_id, attachments: attachments.map(function (a) { return a.path; }) }).then(function (res) {
-      chat.job = res.job;
+      chat.job = res.job; bot.job = res.job; user.job = res.job;
+      save();
       chat.stream = IG.stream(res.job, function (ev) { onEvent(bot, ev); });
     }).catch(function (e) {
       bot.running = false; bot.error = e.message; chat.running = false;
@@ -224,7 +262,7 @@
               h("label", { class: "btn ghost sm", for: "chat-file", title: "Attach images (insights screenshots, your profile…)" }, IG.icon("clip"), h("span", { text: "Image" })), file,
               IG.btn("New chat", { cls: "ghost sm", icon: "plus", onClick: function () {
                 if (chat.running) { IG.toast("Stop the current reply first."); return; }
-                chat.session_id = null; chat.messages = []; save(); renderLog();
+                chat.session_id = null; chat.messages = []; chat.cleared = Date.now(); save(); renderLog();
               } })),
             h("div", { class: "row", style: { gap: "6px" } }, h("span", { class: "tiny faint", text: "Never posts for you" }), stopBtn, sendBtn)));
         composer.addEventListener("dragover", function (e) { e.preventDefault(); });
