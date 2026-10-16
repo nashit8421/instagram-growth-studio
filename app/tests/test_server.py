@@ -708,3 +708,68 @@ class ChatHistoryTests(Base):
         rows = server.chat_log_read(p)
         self.assertEqual(len(rows), server.CHAT_LOG_MAX)
         self.assertEqual(rows[-1]["job"], f"j{server.CHAT_LOG_MAX + 4:04d}")
+
+
+class ProfileFixTests(Base):
+    def write_changes(self):
+        d = os.path.join(server.data_dir(), "profile")
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "changes.json"), "w") as f:
+            json.dump({"handle": "demo.creator", "score_now": 25, "score_after": 52, "changes": [
+                {"id": "name", "field": "name", "value": "Demo | Dad Life"},
+                {"id": "bio", "field": "bio", "value": "line one\nline two"},
+                {"id": "pin-1", "field": "pin", "post_url": "https://www.instagram.com/reel/DZAj9Iopv-c/", "label": "Best"},
+                {"id": "pins", "field": "pins", "app_only": True, "value": "pin it in the app"},
+                {"id": "covers", "field": "covers", "app_only": True, "value": "x"}]}, f)
+        return d
+
+    def test_changes_are_listed(self):
+        self.write_changes()
+        st, j, _, _ = self.req("GET", "/api/profile/changes")
+        self.assertEqual(st, 200)
+        self.assertEqual([c["id"] for c in j["changes"]], ["name", "bio", "pin-1", "pins", "covers"])
+        self.assertEqual(j["handle"], "demo.creator")
+
+    def test_only_approved_valid_changes_get_through(self):
+        self.write_changes()
+        bad = [({"items": []}, "Tick at least one"),
+               ({"items": [{"id": "nope"}]}, "not in the list"),
+               ({"items": [{"id": "covers"}]}, "only be changed in the Instagram app"),
+               ({"items": [{"id": "pins"}]}, "only be changed in the Instagram app"),
+               ({"items": [{"id": "pin-1"}]}, "can't change pin on the web"),     # the website has no pin option
+               ({"items": [{"id": "bio", "value": "x" * 151}]}, "150"),
+               ({"items": [{"id": "name", "value": "two\nlines"}]}, "one line"),
+               ({"items": [{"id": "name", "value": "   "}]}, "empty")]
+        for body, msg in bad:
+            st, j, _, _ = self.req("POST", "/api/profile/apply", body)
+            self.assertEqual(st, 400, body)
+            self.assertIn(msg, j["error"])
+
+    def test_apply_hands_exactly_the_approved_values_to_the_editor(self):
+        d = self.write_changes()
+        st, j, _, _ = self.req("POST", "/api/profile/apply", {"items": [{"id": "bio", "value": "edited by me"}, {"id": "name"}],
+                                                              "dry_run": True})
+        self.assertEqual(st, 200, j)
+        self.events(j["job"])
+        with open(os.path.join(d, "apply.json")) as f:
+            a = json.load(f)
+        self.assertEqual(a["handle"], "demo.creator")
+        self.assertTrue(a["dry_run"])
+        self.assertEqual([c["id"] for c in a["changes"]], ["bio", "name"])
+        self.assertEqual(a["changes"][1]["value"], "Demo | Dad Life")           # unedited: the suggestion
+        self.assertEqual(a["changes"][0]["value"], "edited by me")              # the user's edit wins
+        call = self.fake_calls()[-1]
+        self.assertIn("ig-profile-editor", call["prompt"])
+        self.assertIn(os.path.join(d, "apply.json"), call["prompt"])
+        allowed = call["args"][call["args"].index("--allowedTools") + 1].split(",")
+        self.assertIn("mcp__kweo__browser_click", allowed)
+        self.assertIn("mcp__kweo__browser_type", allowed)
+        self.assertIn("mcp__kweo__browser_run_task", call["args"][call["args"].index("--disallowedTools") + 1])
+
+    def test_ordinary_chats_still_cannot_click_or_type(self):
+        st, j, _, _ = self.req("POST", "/api/chat", {"prompt": "score these hooks"})
+        self.events(j["job"])
+        allowed = self.fake_calls()[-1]["args"]
+        allowed = allowed[allowed.index("--allowedTools") + 1].split(",")
+        self.assertNotIn("mcp__kweo__browser_click", allowed)
+        self.assertNotIn("mcp__kweo__browser_type", allowed)

@@ -453,7 +453,7 @@
       var why = [
         ["No API keys, no Meta developer account.", " It uses the Instagram login you already have in kweo. IG Studio never sees your password."],
         ["Your real account, read for you.", " Profile, posts, views and insights come in automatically for the account scan, post checks and trend research. No screenshots or copying numbers."],
-        ["Read only.", " It can open and read pages, nothing else. It can't like, follow, comment or post."]
+        ["Read only, unless you say so.", " It opens and reads pages. The only time it changes anything is when you tick name or bio fixes and press Fix all with kweo. It never likes, follows, comments or posts."]
       ];
       var steps = installed
         ? [["Click ", "Connect kweo", " below.", "", ""],

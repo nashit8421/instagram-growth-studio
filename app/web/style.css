@@ -517,3 +517,11 @@ details.more[open] > summary::before { content: "▾ "; }
 .checklist .faint { font-size: 12px; margin-left: 16px; }
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
 .row > svg { width: 18px; height: 18px; flex: none; color: var(--ok); }
+
+/* ---------- profile fixes */
+.fix-row { display: flex; gap: 14px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--border); }
+.fix-row:first-child { border-top: 0; }
+.fix-row > label.check, .fix-row > b { min-width: 110px; }
+.fix-row textarea, .fix-row input[type=text] { width: 100%; }
+.ok-text { color: var(--ok); }
+.bad-text { color: var(--bad); }

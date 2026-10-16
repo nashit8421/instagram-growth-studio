@@ -131,6 +131,12 @@ you approve the storyboard, and nothing is ever posted.
   files you post yourself. Automating those actions breaks Instagram's Terms and gets
   accounts restricted.
 - Browsing Instagram is read only, at human pace, in your own logged-in session.
+- One exception you trigger yourself: **Fix all with kweo** on the Account page. You
+  tick each profile change (name and bio), can edit the text, confirm, and
+  kweo's `ig-profile-editor` makes exactly those changes, checking it is on the right
+  account first and stopping at any security prompt. A dry run checks everything
+  without saving. Pins, highlights, covers and links can only be changed in the app (the
+  website has no pin option), so you get a copy-ready list for those.
 - Everything runs on your machine. IG Studio listens on 127.0.0.1 only, behind a
   per-launch token.
 - No one can promise a reel goes viral. These tools improve the odds and measure what

@@ -930,7 +930,7 @@ class ChatRun:
             self.offer_file(p)
 
 
-def run_chat_job(job, server, prompt, session_id):
+def run_chat_job(job, server, prompt, session_id, extra_tools=None):
     claude = find_claude()
     if not claude:
         job.finish("error", error="Claude Code is not installed. Install it from https://claude.com/claude-code.")
@@ -940,7 +940,7 @@ def run_chat_job(job, server, prompt, session_id):
     cmd = [claude, "-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages",
            "--add-dir", skills_dir(),
            "--append-system-prompt", system_context(),
-           "--allowedTools", ",".join(ALLOWED_TOOLS),
+           "--allowedTools", ",".join(ALLOWED_TOOLS + list(extra_tools or [])),
            "--disallowedTools", ",".join(DISALLOWED_TOOLS),
            "--permission-mode", "dontAsk"]
     if session_id:
@@ -1772,6 +1772,99 @@ def api_profile(h, body):
     if len(args) == 1:
         raise ApiError(400, "Fill in at least one field.")
     return {"profile": script_json("ig/state.py", args)}
+
+
+# ---------------------------------------------------------------- profile: fix all with kweo
+
+# The only run that may click and type on Instagram: the user ticked each change first.
+PROFILE_EDIT_TOOLS = ["mcp__kweo__browser_click", "mcp__kweo__browser_type"]
+PROFILE_FIELDS = {"name": 30, "bio": 150}
+
+
+def profile_dir():
+    return os.path.join(data_dir(), "profile")
+
+
+def read_json_file(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+@route("GET", "/api/profile/changes")
+def api_profile_changes(h, body):
+    d = read_json_file(os.path.join(profile_dir(), "changes.json")) or {}
+    res = read_json_file(os.path.join(profile_dir(), "apply-result.json"))
+    return {"changes": d.get("changes") or [], "handle": d.get("handle"), "made_at": d.get("made_at"),
+            "score_now": d.get("score_now"), "score_after": d.get("score_after"), "result": res}
+
+
+def approved_changes(body):
+    d = read_json_file(os.path.join(profile_dir(), "changes.json")) or {}
+    by_id = {c.get("id"): c for c in d.get("changes") or [] if isinstance(c, dict)}
+    items = body.get("items")
+    if not isinstance(items, list) or not items:
+        raise ApiError(400, "Tick at least one change.")
+    out = []
+    for it in items[:10]:
+        c = by_id.get(it.get("id")) if isinstance(it, dict) else None
+        if not c:
+            raise ApiError(400, "That change is not in the list. Refresh the page.")
+        if c.get("app_only"):
+            raise ApiError(400, f"{c.get('field')} can only be changed in the Instagram app.")
+        field = c.get("field")
+        if field in PROFILE_FIELDS:
+            value = it.get("value", c.get("value"))
+            if not isinstance(value, str) or not value.strip():
+                raise ApiError(400, f"The new {field} is empty.")
+            value = value.replace("\r\n", "\n").strip()
+            if len(value) > PROFILE_FIELDS[field]:
+                raise ApiError(400, f"The {field} is {len(value)} characters. Instagram allows {PROFILE_FIELDS[field]}.")
+            if field == "name" and "\n" in value:
+                raise ApiError(400, "The name is one line.")
+            out.append({"id": c["id"], "field": field, "value": value})
+        else:
+            raise ApiError(400, f"kweo can't change {field} on the web.")
+    return d.get("handle"), out
+
+
+@route("POST", "/api/profile/apply")
+def api_profile_apply(h, body):
+    handle, changes = approved_changes(body)
+    handle = str(handle or active_handle() or "").lstrip("@")
+    if not re.fullmatch(r"[A-Za-z0-9._]{1,30}", handle):
+        raise ApiError(400, "The change list has no account handle. Run /ig-profile again.")
+    if not find_claude():
+        raise ApiError(503, "Claude Code is not installed.", {"install": "https://claude.com/claude-code"})
+    dry = bool(body.get("dry_run"))
+    folder = profile_dir()
+    os.makedirs(folder, exist_ok=True)
+    apply_path = os.path.join(folder, "apply.json")
+    result_path = os.path.join(folder, "apply-result.json")
+    with open(apply_path, "w", encoding="utf-8") as f:
+        json.dump({"handle": handle, "dry_run": dry, "changes": changes}, f, indent=2, ensure_ascii=False)
+    try:
+        os.remove(result_path)
+    except OSError:
+        pass
+    prompt = (("Dry run. " if dry else "") +
+              f"Apply my approved Instagram profile changes to @{handle}. Use the ig-profile-editor agent "
+              f"(Agent tool, subagent_type ig-profile-editor) with this prompt: \"apply.json is {apply_path}. "
+              f"Write the result to {result_path}.\" Do nothing on Instagram yourself. When it is done, read "
+              f"{result_path} and tell me in a short list what changed, what did not and why, and what is left "
+              "to do in the Instagram app.")
+    job = h.new_job("chat", ("Dry run: " if dry else "") + f"Fixing @{handle} with kweo")
+    log_path = chat_log_path()
+    try:
+        chat_log_put(log_path, {"job": job.id, "started": time.time(), "status": "running", "attachments": [],
+                                "prompt": ("Dry run: " if dry else "") + "Fix all with kweo: " +
+                                          ", ".join(c["field"] for c in changes)})
+    except OSError:
+        pass
+    start_thread(run_chat_job_logged, job, h.server, prompt, None, log_path, PROFILE_EDIT_TOOLS)
+    return {"job": job.id, "changes": changes, "dry_run": dry}
 
 
 @route("GET", "/api/text")
@@ -2853,9 +2946,9 @@ def chat_summary(job):
             "error": error, "ended": time.time()}
 
 
-def run_chat_job_logged(job, server, prompt, session_id, log_path):
+def run_chat_job_logged(job, server, prompt, session_id, log_path, extra_tools=None):
     try:
-        run_chat_job(job, server, prompt, session_id)
+        run_chat_job(job, server, prompt, session_id, extra_tools)
     finally:
         try:
             chat_log_put(log_path, {"job": job.id, **chat_summary(job)})

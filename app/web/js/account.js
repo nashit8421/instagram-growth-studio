@@ -7,7 +7,7 @@
 
   /* kweo status in IG Studio's words (kweo_check's own text is written for the terminal). */
   IG.kweoText = function (k) {
-    if (k.ready) return "Connected. Claude can read pages in kweo (read only).";
+    if (k.ready) return "Connected. Claude can read pages in kweo, and edit your profile only when you approve it.";
     if (!k.app) return "kweo isn't installed. Get it from kweo.ai, open it, then check again.";
     if (k.process === false) return "kweo is installed but not running. Open kweo, then check again.";
     if (k.server === "off") return "In kweo press ⌘J, open the model picker, choose “Connect a model…” and turn on “Let Claude control kweo”. Then check again.";
@@ -243,6 +243,95 @@
     return wrap;
   }
 
+  /* ---------- profile fixes: tick, edit, "Fix all with kweo" */
+  var FIELD_LABEL = { name: "Name", bio: "Bio", pin: "Pin", unpin: "Unpin", pins: "Pins", highlights: "Highlights", covers: "Grid covers", website: "Link", category: "Category", contact: "Contact", photo: "Photo" };
+  var LIMIT = { name: 30, bio: 150 };
+  var RESULT_TEXT = { done: "✓ Changed", would_change: "Would change", failed: "✗ Failed", skipped: "Skipped" };
+
+  function profileFixes(d, refresh) {
+    var web = d.changes.filter(function (c) { return !c.app_only; });
+    var app = d.changes.filter(function (c) { return c.app_only; });
+    var results = {};
+    ((d.result && d.result.results) || []).forEach(function (r) { results[r.id] = r; });
+    var rows = web.map(function (c) {
+      var box = h("input", { type: "checkbox", checked: true });
+      var edit = null, count = null;
+      if (LIMIT[c.field]) {
+        edit = c.field === "bio" ? IG.textarea("v", { rows: 3, maxlength: String(LIMIT.bio) }) : IG.input("v", { maxlength: String(LIMIT.name) });
+        edit.value = c.value || "";
+        count = h("span", { class: "tiny faint num" });
+        var upd = function () { count.textContent = edit.value.length + " / " + LIMIT[c.field]; };
+        edit.addEventListener("input", upd); upd();
+      }
+      var r = results[c.id];
+      return { c: c, box: box, edit: edit, el: h("div", { class: "fix-row" },
+        h("label", { class: "check" }, box, h("b", { text: FIELD_LABEL[c.field] || c.field })),
+        h("div", { class: "stack-sm grow" },
+          edit ? h("div", null, edit, h("div", { class: "row between" }, c.current ? h("span", { class: "tiny faint", text: "Now: " + c.current }) : h("span"), count))
+               : h("div", null, h("a", { href: c.post_url, target: "_blank", rel: "noopener", text: c.label || c.post_url })),
+          c.why ? h("div", { class: "small muted", text: c.why }) : null,
+          r ? h("div", { class: "small " + (r.status === "done" ? "ok-text" : r.status === "failed" ? "bad-text" : "muted"), text: (RESULT_TEXT[r.status] || r.status) + (r.note ? ": " + r.note : "") }) : null)) };
+    });
+    var out = h("div");
+    var k = d.kweo || {};
+    function chosen() {
+      return rows.filter(function (r) { return r.box.checked; }).map(function (r) { return r.edit ? { id: r.c.id, value: r.edit.value } : { id: r.c.id }; });
+    }
+    function run(dry) {
+      var items = chosen();
+      if (!items.length) { IG.toast("Tick at least one change.", "bad"); return; }
+      var list = h("ul", { class: "small" }, items.map(function (it) {
+        var r = rows.filter(function (x) { return x.c.id === it.id; })[0];
+        return h("li", { style: { whiteSpace: "pre-line" } }, h("b", { text: (FIELD_LABEL[r.c.field] || r.c.field) + ": " }), it.value != null ? it.value : (r.c.label || r.c.post_url));
+      }));
+      var go = function () {
+        return IG.post("/api/profile/apply", { items: items, dry_run: !!dry }).then(function (res) {
+          return watchFix(res.job, out, dry).then(refresh);
+        });
+      };
+      if (dry) return go();
+      IG.dialog("Change these on @" + (d.handle || "your account") + "?", h("div", { class: "stack-sm" },
+        h("p", { class: "small", text: "kweo will open Instagram in your browser and make only these changes, exactly as written. It checks it is logged in as @" + (d.handle || "") + " first, and stops at any password or security prompt." }),
+        list, h("p", { class: "small muted", text: "It never posts, likes, follows, comments or messages. Instagram limits name changes to twice in 14 days." })),
+        [{ label: "Cancel" }, { label: "Fix with kweo", primary: true, onClick: function (close) { close(); return go(); } }]);
+    }
+    var kweoOk = !!(k.ready);
+    var ready = kweoOk && IG.claudeReady();
+    var fixBtn = IG.btn("Fix all with kweo", { cls: "primary", icon: "check", onClick: function () { return run(false); } });
+    var dryBtn = IG.btn("Dry run", { cls: "ghost", title: "kweo checks each change on Instagram but saves nothing", onClick: function () { return run(true); } });
+    fixBtn.disabled = dryBtn.disabled = !ready;
+    return IG.card("Profile fixes", (d.score_now != null ? "Score " + d.score_now + "/100 now, about " + d.score_after + " after these. " : "") + "Tick what to change. You can edit the text first.",
+      h("div", { class: "stack" },
+        web.length ? h("div", { class: "stack-sm" }, rows.map(function (r) { return r.el; })) : null,
+        web.length ? h("div", { class: "row" },
+          fixBtn, dryBtn,
+          !kweoOk ? h("span", { class: "small muted", text: "Open kweo and connect it first (Settings)." }) : null) : null,
+        out,
+        app.length ? h("div", { class: "stack-sm" }, h("h3", { text: "Do these in the Instagram app" }),
+          h("p", { class: "small muted", text: "Instagram only lets you change these on your phone." }),
+          app.map(function (c) {
+            return h("div", { class: "fix-row" }, h("b", { text: FIELD_LABEL[c.field] || c.field }),
+              h("div", { class: "stack-sm grow" }, h("div", { class: "pre small", text: c.value || "" }), c.why ? h("div", { class: "small muted", text: c.why }) : null),
+              c.value ? IG.btn("Copy", { cls: "sm ghost", onClick: function () { return navigator.clipboard.writeText(c.value).then(function () { IG.toast("Copied"); }); } }) : null);
+          })) : null));
+  }
+
+  function watchFix(job, out, dry) {
+    IG.clear(out);
+    var steps = h("ol", { class: "steps small" });
+    out.appendChild(h("div", { class: "stack-sm" }, h("div", { class: "row" }, h("span", { class: "spin" }), h("span", { class: "small muted", text: dry ? "Dry run: kweo is checking each change without saving…" : "kweo is changing your profile. Watch it in kweo…" })), steps));
+    var seen = {};
+    return new Promise(function (resolve) {
+      IG.stream(job, function (ev) {
+        if (ev.type === "tool" && ev.summary && !seen[ev.summary] && !/^(Reading|Searching|Loading)/.test(ev.summary)) { seen[ev.summary] = 1; steps.appendChild(h("li", { text: ev.summary })); }
+        if (ev.type === "end") {
+          IG.toast(ev.status === "done" ? (dry ? "Dry run finished" : "Profile updated, check the results") : "kweo stopped", ev.status === "done" ? null : "bad");
+          resolve();
+        }
+      });
+    });
+  }
+
   IG.screen("account", {
     title: "Account", icon: "account",
     render: function (view, params, m) {
@@ -252,6 +341,12 @@
       return IG.get("/api/scan").then(function (data) {
         if (!IG.alive(m)) return;
         IG.clear(view);
+        var fixBox = h("div");
+        view.appendChild(fixBox);
+        Promise.all([IG.get("/api/profile/changes"), IG.get("/api/kweo").catch(function () { return {}; })]).then(function (r) {
+          var d = r[0]; d.kweo = r[1];
+          if (d.changes && d.changes.length && IG.alive(m)) fixBox.appendChild(profileFixes(d, refresh));
+        }).catch(function () { /* the card is optional */ });
         if (!data.available) view.appendChild(IG.note("warn", "The account scanner (ig-scan) isn't installed in your skills folder yet. Everything else works; come back here once it's installed."));
         var handleInput = IG.input("handle", { placeholder: "yourhandle", autocomplete: "off", spellcheck: "false",
           value: (data.account && data.account.handle) || (IG.accounts && IG.accounts.active) || "" });

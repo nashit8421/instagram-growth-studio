@@ -95,4 +95,34 @@ the rewrite reaches 84 and not 98, say 84, and say what the rest needs, which
 is usually a grid, a story habit and a pinned post that does not exist yet.
 None of that is a rewrite.
 
-Nothing is saved to Instagram by this skill. The user edits each field.
+Nothing is saved to Instagram by this skill.
+
+## Save the change list
+
+Last, write `$DATA/profile/changes.json`: the one recommended version of each
+change (the option you would pick, after /ig-human), so IG Studio can show it
+with a **Fix all with kweo** button. The user ticks what to apply, can edit
+the text, and kweo's `ig-profile-editor` agent makes only those changes.
+
+```json
+{"handle": "omar.chhipa", "made_at": "YYYY-MM-DDTHH:MM", "score_now": 25, "score_after": 52,
+ "changes": [
+   {"id": "name", "field": "name", "value": "Omar | Dad Life & Toddler Fun", "current": "Omar Chhipa", "why": "searched words, both people"},
+   {"id": "bio", "field": "bio", "value": "line one\nline two", "current": "...", "why": "..."},
+   {"id": "pins", "field": "pins", "app_only": true, "value": "Open 'Best phase of your life' > ... > Pin to profile", "why": "7.1k views, both of you"},
+   {"id": "highlights", "field": "highlights", "value": "Meet Us · Playtime · Snacks", "app_only": true, "why": "..."},
+   {"id": "covers", "field": "covers", "value": "Goggles reel: Best phase of life\n...", "app_only": true, "why": "..."}
+ ]}
+```
+
+- `name` (30 characters max) and `bio` (150 max) are the fields kweo can
+  apply on Instagram's website.
+- Everything else (pins, website link, highlights, covers, category, contact,
+  photo) is only editable in the Instagram app (the website has no pin
+  option): mark it `"app_only": true` and write the value as the exact steps
+  or text to use.
+- Keep lines the account must have: an account for a child under 13 must
+  say a parent manages it ("Managed by Dad"); never drop that from a bio.
+- Only write values the user would post as they are. No placeholders, no
+  facts you could not check (say "best reel", not "first reel", unless the
+  dates prove it).
