@@ -47,11 +47,29 @@ The prompt names an `apply.json`. Read it:
   open each place, find the field or menu item, read the current value, and
   report what you would change. Type nothing, click no Submit, Done or Pin.
 
+## Check before every save (never skip)
+
+kweo's typing can leave the old text in a field (older kweo versions on a
+Mac added the new text after the old one). So after typing, and before
+clicking Submit or Done, prove the field holds only the new value:
+
+- **Bio:** the counter under the box ("125 / 150") must equal the length of
+  the new value exactly, counting each line break as 1. `browser_read` shows
+  the box's start (`textbox "Bio" = "..."`): it must match the start of the
+  new value, and the old bio's first words must be gone.
+- **Name:** `browser_read` shows the whole name (`textbox "Name" = "..."`): it
+  must equal the new value exactly.
+
+If either check fails, do not save. Leave the page without saving (navigate
+to the profile; if it asks to discard changes, discard), mark that change
+`failed` with the note "kweo did not replace the old text; update kweo and
+try again", and stop. A wrong bio on a live profile is worse than no change.
+
 ## How
 
-- **Bio:** on `/accounts/edit/`, read the current bio. Select all of the bio
-  text box and type the new value (`browser_type` replaces the field). Read
-  the box back: it must equal the value. Click Submit. Wait, then reload the
+- **Bio:** on `/accounts/edit/`, read the current bio. Type the new value into
+  the Bio box with `browser_type` (it is meant to replace the field). Run the
+  check above. Only then click Submit. Wait, then reload the
   page and read the bio again.
 - **Name:** open `https://accountscenter.instagram.com/profiles/`. It is
   slow: `browser_wait` 8 seconds and read again until the profile list shows.
@@ -59,7 +77,7 @@ The prompt names an `apply.json`. Read it:
   is `<handle> Instagram`. Open that link with `name/` added
   (`https://accountscenter.instagram.com/profiles/<id>/name/`): a dialog with a
   `Name` text box and a `Done` button. Check the box shows the current name,
-  replace it, read it back, click Done. Instagram allows two name changes in
+  replace it, run the check above, then click Done. Instagram allows two name changes in
   14 days; if it says so, report that and stop that change.
 - **Check every change on the live profile** (`https://www.instagram.com/<handle>/`)
   with `browser_text`: the name and bio as shown.
