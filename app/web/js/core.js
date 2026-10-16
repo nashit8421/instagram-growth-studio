@@ -34,7 +34,18 @@
     folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
     lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
-    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    week: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M7 14h3M7 17h6"/>',
+    results: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    film: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+    cut: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.6L20 18M8.6 16.4L20 6"/>',
+    post: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+    copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>',
+    play: '<path d="M7 4l13 8-13 8z"/>',
+    back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+    chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>'
   };
   IG.icon = function (name, cls) {
     var span = document.createElement("span");
@@ -125,6 +136,10 @@
     var d = new Date(iso.length <= 10 ? iso + "T12:00:00" : iso);
     if (isNaN(d)) return iso;
     return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  };
+  IG.quote = function (s) {
+    s = String(s || "").trim();
+    return /^["“'‘]/.test(s) ? s : "“" + s + "”";
   };
   IG.cap = function (s) { s = String(s || ""); return s.charAt(0).toUpperCase() + s.slice(1); };
 
@@ -361,41 +376,70 @@
 
   /* ---------------- router */
   IG.screen = function (id, def) { IG.screens[id] = def; if (IG.order.indexOf(id) < 0) IG.order.push(id); };
+  /* Screens that share a tab bar (Results: account, posts, growth, trends). */
+  IG.groups = {
+    results: { title: "Results", tabs: [["account", "Account"], ["posts", "Posts"], ["growth", "Growth"], ["trends", "Trends & sound"]] }
+  };
+  IG.hashFor = function (id, params) {
+    var q = params ? IG.q(params) : "";
+    return "#" + id + (q ? "?" + q : "");
+  };
   IG.go = function (id, params) {
     IG.params = params || {};
-    if (location.hash !== "#" + id) { IG._skipHash = true; location.hash = id; }
+    var want = IG.hashFor(id, params);
+    if (location.hash !== want) { IG._skipHash = true; location.hash = want; }
     IG.render(id);
   };
   IG.alive = function (m) { return m === IG.mount; };
   IG.render = function (id) {
-    if (!IG.screens[id]) id = "today";
+    if (!IG.screens[id]) id = "week";
+    var prev = IG.current;
     IG.current = id;
     var def = IG.screens[id];
     IG.mount++;
     var m = IG.mount;
-    document.getElementById("page-title").textContent = def.title;
-    document.title = def.title + " · IG Studio";
-    document.querySelectorAll("#nav a, #tabs a").forEach(function (a) {
-      if (a.dataset.id === id) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    var place = def.group || id;
+    document.title = (def.group ? IG.groups[def.group].title : def.title) + " · IG Studio";
+    document.querySelectorAll("#nav a").forEach(function (a) {
+      if (a.dataset.id === place) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
-    var cur = document.querySelector('#tabs a[data-id="' + id + '"]');
-    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "nearest", inline: "nearest" });
     var view = IG.clear(document.getElementById("view"));
+    view.className = "view" + (def.wide ? " wide" : "");
+    var target = view;
+    if (def.group) {
+      try { sessionStorage.setItem("iggroup:" + def.group, id); } catch (e) { /* ignore */ }
+      var g = IG.groups[def.group];
+      view.appendChild(h("div", { class: "page-h" }, h("h1", { text: g.title }),
+        h("nav", { class: "subtabs", "aria-label": g.title }, g.tabs.map(function (t) {
+          return h("a", { href: "#" + t[0], "aria-current": t[0] === id ? "page" : null, text: t[1] });
+        }))));
+      target = h("div", { class: "stack" });
+      view.appendChild(target);
+    }
+    if (prev !== id) window.scrollTo(0, 0);
     try {
-      var r = def.render(view, IG.params || {}, m);
-      if (r && r.catch) r.catch(function (e) { if (IG.alive(m)) view.appendChild(IG.errorBox(e, function () { IG.render(id); })); });
-    } catch (e) { view.appendChild(IG.errorBox(e)); console.error(e); }
+      var r = def.render(target, IG.params || {}, m);
+      if (r && r.catch) r.catch(function (e) { if (IG.alive(m)) target.appendChild(IG.errorBox(e, function () { IG.render(id); })); });
+    } catch (e) { target.appendChild(IG.errorBox(e)); console.error(e); }
     IG.params = {};
   };
+  /* The top bar holds only places: Week and Results. Everything else hangs off them. */
   IG.buildNav = function () {
-    var nav = IG.clear(document.getElementById("nav")), tabs = IG.clear(document.getElementById("tabs"));
-    IG.order.forEach(function (id) {
-      var def = IG.screens[id];
-      if (def.hidden) return;
-      var a = h("a", { href: "#" + id, dataset: { id: id } }, IG.icon(def.icon || id), h("span", { text: def.title }));
+    var nav = IG.clear(document.getElementById("nav"));
+    var places = [["week", "This week", "week", "#week"], ["results", "Results", "results", null]];
+    places.forEach(function (p) {
+      var a = h("a", { href: p[3] || "#account", dataset: { id: p[0] } }, IG.icon(p[2]), h("span", { text: p[1] }));
+      if (p[0] === "results") a.addEventListener("click", function (e) {
+        e.preventDefault();
+        var last = null; try { last = sessionStorage.getItem("iggroup:results"); } catch (x) { /* ignore */ }
+        IG.go(last || "account");
+      });
       nav.appendChild(a);
-      tabs.appendChild(h("a", { href: "#" + id, dataset: { id: id }, text: def.short || def.title }));
     });
+    var ask = document.getElementById("ask-btn");
+    IG.clear(ask).appendChild(IG.icon("chat"));
+    ask.appendChild(h("span", { class: "ask-lbl", text: "Ask Claude" }));
+    IG.clear(document.getElementById("settings-btn")).appendChild(IG.icon("settings"));
   };
   IG.setBadge = function (id, n) {
     var a = document.querySelector('#nav a[data-id="' + id + '"]');
@@ -409,8 +453,7 @@
   /* ---------------- AI handoff */
   IG.ask = function (prompt, opts) {
     opts = opts || {};
-    IG.pendingAsk = { prompt: prompt, send: !!opts.send, attachments: opts.attachments || [] };
-    IG.go("assistant");
+    IG.openChat({ prompt: prompt, send: !!opts.send, attachments: opts.attachments || [] });
   };
   IG.claudeReady = function () { return !!(IG.status && IG.status.claude && IG.status.claude.found); };
   IG.installCard = function () {
@@ -427,118 +470,44 @@
   IG.loadStatus = function () {
     return IG.get("/api/status").then(function (s) {
       IG.status = s;
-      var dot = document.getElementById("side-dot");
-      dot.className = "dot" + (s.claude.found ? "" : " off");
-      IG.renderInstallBanner(s.install);
-      IG.renderSetupBanner(s.whisper_setup);
+      IG.renderNotice(s);
       return s;
     });
   };
-  /* kweo nudge: shown at startup when kweo is missing or not connected */
-  var KWEO_SNOOZE = "ig.kweoNudgeSnooze";
-  IG.kweoNudge = function () {
-    var el = document.getElementById("kweo-banner");
-    var until = 0;
-    try { until = +localStorage.getItem(KWEO_SNOOZE) || 0; } catch (e) { /* storage blocked */ }
-    if (Date.now() < until) return Promise.resolve();
-    return IG.get("/api/kweo").then(function (k) {
-      IG.kweo = k;
-      IG.clear(el);
-      if (k.ready) { el.hidden = true; return; }
-      var installed = !!k.app;
-      var title = installed ? "Connect kweo to finish setup" : "Install kweo so IG Studio can see your Instagram";
-      var lead = installed
-        ? "kweo is installed. One more step and IG Studio can read your account for you."
-        : "kweo is a free AI browser. IG Studio uses it to read your Instagram the way you see it, so you never type numbers in or set up API keys.";
-      var why = [
-        ["No API keys, no Meta developer account.", " It uses the Instagram login you already have in kweo. IG Studio never sees your password."],
-        ["Your real account, read for you.", " Profile, posts, views and insights come in automatically for the account scan, post checks and trend research. No screenshots or copying numbers."],
-        ["Read only, unless you say so.", " It opens and reads pages. The only time it changes anything is when you tick name or bio fixes and press Fix all with kweo. It never likes, follows, comments or posts."]
-      ];
-      var steps = installed
-        ? [["Click ", "Connect kweo", " below.", "", ""],
-           ["kweo asks you to confirm. Click ", "Connect", " there.", "", ""],
-           ["That's it. IG Studio notices on its own, no restart.", "", "", "", ""]]
-        : [["Download kweo from ", "kweo.ai", " and log in to Instagram in it, like any browser.", "", ""],
-           ["Come back here and click ", "Connect kweo", ". kweo asks you to confirm once.", "", ""],
-           ["Done. IG Studio and kweo talk on this computer only.", "", "", "", ""]];
-      var main = installed
-        ? null
-        : h("a", { class: "btn primary sm", href: "https://kweo.ai", target: "_blank", rel: "noopener noreferrer", text: "Get kweo (free)" });
-      var later = h("button", { class: "btn ghost sm", type: "button", text: "Not now", onclick: function () {
-        try { localStorage.setItem(KWEO_SNOOZE, String(Date.now() + 7 * 864e5)); } catch (e) { /* storage blocked */ }
-        el.hidden = true;
-      } });
-      var whyList = h("ul", { class: "kweo-why" });
-      why.forEach(function (w) { whyList.appendChild(h("li", null, h("strong", { text: w[0] }), w[1])); });
-      var stepList = h("ol", { class: "kweo-steps" });
-      steps.forEach(function (st) {
-        stepList.appendChild(h("li", null, st[0], h("strong", { text: st[1] }), st[2], st[3] ? h("strong", { text: st[3] }) : "", st[4] || ""));
-      });
-      el.appendChild(h("section", { class: "kweo-card" },
-        h("div", { class: "kweo-head" },
-          h("div", null, h("h2", { text: title }), h("p", { class: "sub", text: lead })),
-          h("div", { class: "row-btns" }, main, later)),
-        h("div", { class: "kweo-cols" },
-          h("div", null, h("h3", { text: "Why kweo" }), whyList),
-          h("div", null, h("h3", { text: installed ? "How to connect" : "How it connects" }), stepList,
-            installed && IG.kweoConnectBox ? h("div", { style: { marginTop: "12px" } }, IG.kweoConnectBox(function () {
-              setTimeout(function () { el.hidden = true; }, 2500); IG.loadStatus(); })) : null)),
-        h("p", { class: "small muted", text: "Optional. Without kweo, IG Studio still works with your Instagram data download or screenshots." })));
+  /* One quiet notice under the top bar, only when the user can do something about it:
+     a skills install/update, or exact captions failing to set up. Whisper installing
+     in the background is not news. */
+  IG.renderNotice = function (s) {
+    var el = IG.clear(document.getElementById("notice"));
+    var inst = s && s.install, ws = s && s.whisper_setup;
+    clearTimeout(IG._setupPoll);
+    if (ws && ws.state === "installing") IG._setupPoll = setTimeout(IG.loadStatus, 4000);
+    if (inst && inst.needed) {
+      var fresh = inst.missing.length && !inst.outdated.length && inst.missing.indexOf("ig") >= 0;
+      var btn = h("button", { class: "btn primary sm", type: "button", text: fresh ? "Install skills" : "Update skills" });
+      btn.onclick = function () {
+        btn.disabled = true; btn.textContent = "Installing…";
+        IG.post("/api/install-skills").then(function (r) {
+          IG.toast("Installed " + r.installed.length + " skills" + (r.backup ? ". Old ones backed up." : "."), "ok");
+          return IG.loadStatus();
+        }).catch(function (e) { btn.disabled = false; btn.textContent = "Try again"; IG.fail(e); });
+      };
+      el.appendChild(h("div", { class: "notice" }, h("span", { text: fresh
+        ? "One step left: install the skills so Claude can prepare your week."
+        : "A newer version of the skills came with this download. Your current ones are backed up first." }), btn));
       el.hidden = false;
-    }).catch(function () { el.hidden = true; });
-  };
-
-  /* Whisper setup runs in the background on every launch; show it while it works. */
-  IG.renderSetupBanner = function (ws) {
-    var el = IG.clear(document.getElementById("setup-banner"));
-    var prev = IG._whisperState;
-    IG._whisperState = ws && ws.state;
-    if (!ws || ws.state === "idle" || ws.state === "skipped") { el.hidden = true; return; }
-    if (ws.state === "ready") {
-      el.hidden = true;
-      if (prev === "installing") IG.toast("Captions are ready: Whisper is installed", "ok");
       return;
     }
-    if (ws.state === "failed") {
+    if (ws && ws.state === "failed") {
       var retry = h("button", { class: "btn sm", type: "button", text: "Try again", onclick: function () {
         IG.post("/api/setup/whisper").then(function () { setTimeout(IG.loadStatus, 1500); });
       } });
-      el.appendChild(h("div", { class: "note warn" },
-        h("span", { text: "Couldn't set up Whisper for exact captions: " + (ws.error || ws.step) +
-          ". Videos still get captions timed from your script." }), retry));
+      el.appendChild(h("div", { class: "notice warn" }, h("span", { text: "Word-timed captions couldn't be set up (" +
+        (ws.error || ws.step) + "). Reels still get captions timed from the script." }), retry));
       el.hidden = false;
       return;
     }
-    var pct = ws.progress != null ? " " + ws.progress + "%" : "";
-    el.appendChild(h("div", { class: "note info" },
-      h("span", { text: "Setting up exact video captions in the background: " + ws.step + pct +
-        ". You can keep using IG Studio." })));
-    el.hidden = false;
-    clearTimeout(IG._setupPoll);
-    IG._setupPoll = setTimeout(IG.loadStatus, 3000);
-  };
-
-  IG.renderInstallBanner = function (inst) {
-    var el = IG.clear(document.getElementById("install-banner"));
-    if (!inst || !inst.needed) { el.hidden = true; return; }
-    var fresh = inst.missing.length && !inst.outdated.length && inst.missing.indexOf("ig") >= 0;
-    var msg = fresh
-      ? "IG Studio works now. Install the skills into Claude Code so the Assistant and the /ig command can use them too."
-      : "A newer version of the skills came with this download (" + (inst.missing.length + inst.outdated.length) + " to update). Your current ones are backed up first.";
-    var btn = h("button", { class: "btn primary sm", type: "button", text: fresh ? "Install skills" : "Update skills" });
-    btn.onclick = function () {
-      btn.disabled = true; btn.textContent = "Installing…";
-      IG.post("/api/install-skills").then(function (r) {
-        IG.toast("Installed " + r.installed.length + " skills" + (r.backup ? ". Old ones backed up." : "."), "ok");
-        return IG.loadStatus();
-      }).catch(function (e) {
-        btn.disabled = false; btn.textContent = "Try again";
-        IG.toast((e && e.message) || "Install failed", "bad");
-      });
-    };
-    el.appendChild(h("div", { class: "note info" }, h("span", { text: msg }), btn));
-    el.hidden = false;
+    el.hidden = true;
   };
   IG.loadAccounts = function () {
     return IG.get("/api/accounts").then(function (a) {
@@ -546,7 +515,7 @@
       var sel = IG.clear(document.getElementById("acct-select"));
       if (!a.accounts.length) sel.appendChild(h("option", { value: "", text: "my account" }));
       a.accounts.forEach(function (x) { sel.appendChild(h("option", { value: x.handle, text: x.handle })); });
-      sel.appendChild(h("option", { value: "__new", text: "+ Add account…" }));
+      sel.appendChild(h("option", { value: "__new", text: "+ Add an account…" }));
       sel.value = a.active || "";
       return a;
     }).catch(function (e) {
@@ -567,7 +536,7 @@
     return p.then(function () { IG.state = null; return IG.loadAccounts(); }).then(function () {
       if (IG.onAccountChange) IG.onAccountChange();
       IG.toast("Switched to " + (handle ? "@" + handle : "the default account"));
-      IG.render(IG.current || "today");
+      IG.render(IG.current === "post" ? "week" : (IG.current || "week"));
     });
   };
 

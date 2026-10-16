@@ -23,7 +23,7 @@
       if (!v) { input.focus(); return; }
       IG.busy(form.querySelector("button"), function () {
         return IG.post("/api/accounts/new", { handle: v }).then(function () { return IG.loadAccounts(); }).then(function () {
-          IG.state = null; if (IG.onAccountChange) IG.onAccountChange(); IG.toast("Added @" + v); IG.go("today");
+          IG.state = null; if (IG.onAccountChange) IG.onAccountChange(); IG.toast("Added @" + v); IG.go("week");
         });
       });
     });
@@ -39,7 +39,7 @@
   }
 
   IG.screen("settings", {
-    title: "Settings", icon: "settings",
+    title: "Settings", icon: "settings", hidden: true,
     render: function (view, params, m) {
       view.classList.add("stack");
       view.appendChild(IG.loading());
@@ -47,7 +47,18 @@
         if (!IG.alive(m)) return;
         IG.clear(view);
         var s = IG.status;
+        view.appendChild(h("div", { class: "page-h" }, h("h1", { text: "Settings" })));
         view.appendChild(accountsCard());
+        var profBox = h("div", null, IG.loading());
+        view.appendChild(IG.card("About " + IG.handle(), "Claude fills these from the scan. Change them only if they're wrong.", profBox));
+        IG.get("/api/state?quick=1").then(function (st) {
+          IG.state = st;
+          IG.clear(profBox).appendChild(IG.profileForm(st.profile || {}, function () { IG.state = null; }));
+        }).catch(function (e) { IG.clear(profBox).appendChild(IG.errorBox(e)); });
+        view.appendChild(IG.card("Tools", "For doing a step by hand. Claude uses the same tools when it prepares your week.",
+          h("div", { class: "chips" }, [["hooks", "Hook scorer"], ["beats", "Script timer"], ["caption", "Caption checker"], ["human", "Humanizer"], ["carousel", "Carousel maker"], ["video", "Video editor"]].map(function (t) {
+            return h("a", { class: "chip", href: IG.hashFor("tools", { tool: t[0] }), text: t[1] });
+          }))));
 
         var kweoBox = h("div", { class: "d" }, h("span", { class: "spin", style: { width: "12px", height: "12px" } }));
         var kweoItemWrap = h("div");

@@ -3,7 +3,7 @@
 
 Every call is appended to $FAKE_CLAUDE_LOG as one JSON line {args, prompt, cwd}.
 Prompt keywords: SLOW (sleeps, for cancel tests), MAKEFILE (writes a PNG in cwd),
-FAIL (exits with an error result).
+FAIL (exits with an error result), WRITEWEEK (writes week.json for the Monday in the prompt).
 """
 import json
 import os
@@ -53,6 +53,16 @@ def main():
         with open(p, "wb") as f:
             f.write(b"\x89PNG\r\n\x1a\n" + b"\0" * 32)
         made = f" Saved {p}."
+    if "WRITEWEEK" in prompt:
+        import re
+        monday = re.search(r"week of Monday (\d{4}-\d{2}-\d{2})", prompt).group(1)
+        post = {"id": "mon", "day": "MON", "date": monday, "time": "19:30", "format": "reel", "type": "proof",
+                "title": "Fake reel", "hook": {"spoken": "Fake hook", "on_screen": "FAKE", "formula": 18},
+                "script": [{"t": "0-2s", "say": "Fake hook"}],
+                "direction": {"mood": "energetic", "setup": {}, "shots": [{"n": 1, "action": "talk"}]},
+                "caption": {"text": "Fake caption", "hashtags": ["#a"]}, "length_s": 20}
+        with open(os.path.join(os.getcwd(), "week.json"), "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "week_of": monday, "headline": "Fake week", "posts": [post]}, f)
     mid2 = "msg_2"
     out({"type": "stream_event", "session_id": sid, "event": {"type": "message_start", "message": {"id": mid2}}})
     out({"type": "stream_event", "session_id": sid, "event": {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}})

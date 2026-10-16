@@ -3,14 +3,12 @@
   "use strict";
   var h = IG.h;
   var CHIPS = [
-    ["Write a reel", "/ig-reel Write a reel about: "],
-    ["Make a carousel", "/ig-carousel Make a carousel about: "],
-    ["Find trends", "/ig-trends Find what's trending in my region and my niche this week, then update my trend board."],
-    ["Pick a song", "/ig-audio Pick the sound for my next reel. It's about: "],
-    ["Weekly growth review", "/ig-grow Run my weekly growth review."],
-    ["Plan my week", "/ig-plan Plan my week."],
-    ["Fix my profile", "/ig-profile Score my profile and rewrite what loses points. (Attach a screenshot of the top of your profile.)"],
-    ["Check a reel", "/ig-perf Check how my latest reel is doing. (Attach an insights screenshot if you have one.)"]
+    ["Change a post this week", "Change this week's plan: "],
+    ["Fix my profile", "/ig-profile Score my profile and rewrite what loses points, then save the fixes so I can apply them."],
+    ["How is my last reel doing?", "/ig-perf Check how my latest reel is doing and tell me the one thing to change."],
+    ["What's trending now?", "/ig-trends Find what's trending in my region and niche right now and update my trend board."],
+    ["Reply to my comments", "/ig-reply Help me reply to the comments on my latest post. (Paste or attach them.)"],
+    ["Write a DM", "/ig-dm Write a DM to: "]
   ];
   var chat = IG.chat = { key: null, session_id: null, messages: [], job: null, stream: null, running: false, cleared: 0 };
   var ui = null; // {log, input, sendBtn, stopBtn, attachList, pending: []}
@@ -139,9 +137,8 @@
     if (!ui) return;
     IG.clear(ui.log);
     if (!chat.messages.length) {
-      ui.log.appendChild(h("div", { class: "card tint", style: { maxWidth: "680px" } },
-        h("h2", { text: "What should we make?" }),
-        h("p", { class: "muted", style: { margin: "6px 0 14px" }, text: "Claude runs the ig skills for you: it writes in your voice, scores hooks, renders slides and plans the week. It asks before anything goes in your calendar and never posts for you." }),
+      ui.log.appendChild(h("div", { class: "chat-empty" },
+        h("p", { class: "muted", text: "Claude already planned your week. Ask for anything else, or tell it what to change: it edits the plan, writes, researches and checks your numbers. It never posts for you." }),
         h("div", { class: "chips" }, CHIPS.map(chipBtn))));
     }
     chat.messages.forEach(function (m) { var el = h("div"); paint(m, el); ui.log.appendChild(el); });
@@ -199,7 +196,8 @@
       if (ev.status === "cancelled") bot.error = "Stopped.";
       else if (ev.status !== "done") bot.error = ev.error || "Claude stopped.";
       save();
-      if (IG.current !== "assistant") IG.toast(ev.status === "done" ? "Claude replied" : "Claude stopped");
+      if (!ui) IG.toast(ev.status === "done" ? "Claude replied" : "Claude stopped");
+      if ((IG.current === "week" || IG.current === "post") && !document.querySelector("dialog[open]")) IG.refresh();
     }
     repaintLast();
   }
@@ -224,64 +222,87 @@
     });
   }
 
-  IG.screen("assistant", {
-    title: "Assistant", icon: "assistant",
-    render: function (view, params, m) {
-      if (!IG.claudeReady()) { view.appendChild(IG.installCard()); return; }
-      view.appendChild(IG.loading());
-      return load().then(function () {
-        if (!IG.alive(m)) return;
-        IG.clear(view);
-        var log = h("div", { class: "chat-log", "aria-live": "polite", "aria-label": "Conversation" });
-        var input = IG.textarea("prompt", { rows: 2, placeholder: "Ask Claude… (Enter to send, Shift+Enter for a new line)", "aria-label": "Message" });
-        var file = h("input", { type: "file", accept: "image/*", multiple: true, class: "sr", id: "chat-file" });
-        var sendBtn = IG.btn("Send", { cls: "primary sm", icon: "send" });
-        var stopBtn = IG.btn("Stop", { cls: "sm danger", icon: "stop" });
-        var attachList = h("div", { class: "attach-list" });
-        ui = { log: log, input: input, sendBtn: sendBtn, stopBtn: stopBtn, attachList: attachList, pending: [] };
-        var doSend = function () {
-          if (ui.pending.some(function (a) { return a.uploading; })) { IG.toast("Wait for the image to finish uploading."); return; }
-          var atts = ui.pending.slice();
-          var text = input.value;
-          if (!text.trim()) return;
-          input.value = ""; ui.pending = []; drawAttach(); autosize();
-          send(text, atts);
-        };
-        sendBtn.addEventListener("click", doSend);
-        stopBtn.addEventListener("click", function () { if (chat.stream) chat.stream.cancel().catch(IG.fail); });
-        input.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); doSend(); } });
-        input.addEventListener("input", autosize);
-        input.addEventListener("paste", function (e) {
-          var items = (e.clipboardData && e.clipboardData.files) || [];
-          if (items.length) { e.preventDefault(); addFiles(items); }
-        });
-        file.addEventListener("change", function () { addFiles(file.files); file.value = ""; });
-        var composer = h("div", { class: "composer" }, attachList, input,
-          h("div", { class: "bar-row" },
-            h("div", { class: "row", style: { gap: "4px" } },
-              h("label", { class: "btn ghost sm", for: "chat-file", title: "Attach images (insights screenshots, your profile…)" }, IG.icon("clip"), h("span", { text: "Image" })), file,
-              IG.btn("New chat", { cls: "ghost sm", icon: "plus", onClick: function () {
-                if (chat.running) { IG.toast("Stop the current reply first."); return; }
-                chat.session_id = null; chat.messages = []; chat.cleared = Date.now(); save(); renderLog();
-              } })),
-            h("div", { class: "row", style: { gap: "6px" } }, h("span", { class: "tiny faint", text: "Never posts for you" }), stopBtn, sendBtn)));
-        composer.addEventListener("dragover", function (e) { e.preventDefault(); });
-        composer.addEventListener("drop", function (e) { e.preventDefault(); addFiles(e.dataTransfer.files); });
-        var chipsRow = chat.messages.length ? h("div", { class: "chips", style: { marginBottom: "8px" } }, CHIPS.map(chipBtn)) : null;
-        view.appendChild(h("div", { class: "chat" }, log, h("div", null, chipsRow, composer)));
-        renderLog();
-        var p = IG.pendingAsk; IG.pendingAsk = null;
-        if (p) {
-          if (p.attachments && p.attachments.length) { ui.pending = p.attachments.slice(); drawAttach(); }
-          if (p.send && !chat.running) { send(p.prompt, ui.pending.slice()); ui.pending = []; drawAttach(); }
-          else setInput(p.prompt);
-        } else input.focus();
-      });
-    },
-    leave: function () { ui = null; }
-  });
+  /* ---------- the drawer */
+  IG.busyWith = function () { return chat.running; };
+  function drawerEl() { return document.getElementById("drawer"); }
+  IG.closeChat = function () {
+    var d = drawerEl();
+    d.hidden = true; d.classList.remove("open");
+    document.getElementById("scrim").hidden = true;
+    document.getElementById("ask-btn").setAttribute("aria-expanded", "false");
+    document.body.classList.remove("drawer-open");
+    ui = null;
+  };
+  IG.toggleChat = function () { if (drawerEl().hidden) IG.openChat(); else IG.closeChat(); };
+  IG.openChat = function (p) {
+    var d = drawerEl();
+    var scrim = document.getElementById("scrim");
+    if (d.hidden) {
+      d.hidden = false;
+      requestAnimationFrame(function () { d.classList.add("open"); });
+      scrim.hidden = false;
+      scrim.onclick = IG.closeChat;
+      document.body.classList.add("drawer-open");
+      document.getElementById("ask-btn").setAttribute("aria-expanded", "true");
+      document.addEventListener("keydown", escClose);
+    }
+    if (!IG.claudeReady()) { IG.clear(d).appendChild(h("div", { class: "drawer-b" }, IG.installCard())); return; }
+    var mountChat = function () { return build(d, p); };
+    if (ui && !p) { ui.input.focus(); return; }
+    IG.clear(d).appendChild(IG.loading());
+    load().then(mountChat).catch(function (e) { IG.clear(d).appendChild(IG.errorBox(e)); });
+  };
+  function escClose(e) {
+    if (e.key === "Escape" && !drawerEl().hidden && !document.querySelector("dialog[open]") && !document.querySelector(".tp")) {
+      IG.closeChat(); document.removeEventListener("keydown", escClose);
+    }
+  }
 
-  // Keep painting while the view is mounted; drop references when it is not.
-  var origRender = IG.render;
-  IG.render = function (id) { if (id !== "assistant") ui = null; return origRender(id); };
+  function build(d, p) {
+    IG.clear(d);
+    var log = h("div", { class: "chat-log", "aria-live": "polite", "aria-label": "Conversation" });
+    var input = IG.textarea("prompt", { rows: 2, placeholder: "Ask Claude… (Enter to send)", "aria-label": "Message" });
+    var file = h("input", { type: "file", accept: "image/*", multiple: true, class: "sr", id: "chat-file" });
+    var sendBtn = IG.btn("Send", { cls: "primary sm", icon: "send" });
+    var stopBtn = IG.btn("Stop", { cls: "sm danger", icon: "stop" });
+    var attachList = h("div", { class: "attach-list" });
+    ui = { log: log, input: input, sendBtn: sendBtn, stopBtn: stopBtn, attachList: attachList, pending: [] };
+    var doSend = function () {
+      if (ui.pending.some(function (a) { return a.uploading; })) { IG.toast("Wait for the image to finish uploading."); return; }
+      var atts = ui.pending.slice();
+      var text = input.value;
+      if (!text.trim()) return;
+      input.value = ""; ui.pending = []; drawAttach(); autosize();
+      send(text, atts);
+    };
+    sendBtn.addEventListener("click", doSend);
+    stopBtn.addEventListener("click", function () { if (chat.stream) chat.stream.cancel().catch(IG.fail); });
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); doSend(); } });
+    input.addEventListener("input", autosize);
+    input.addEventListener("paste", function (e) {
+      var items = (e.clipboardData && e.clipboardData.files) || [];
+      if (items.length) { e.preventDefault(); addFiles(items); }
+    });
+    file.addEventListener("change", function () { addFiles(file.files); file.value = ""; });
+    var composer = h("div", { class: "composer" }, attachList, input,
+      h("div", { class: "bar-row" },
+        h("label", { class: "btn ghost sm", for: "chat-file", title: "Attach screenshots (insights, your profile, comments)" }, IG.icon("clip"), h("span", { text: "Image" })), file,
+        h("div", { class: "row", style: { gap: "6px" } }, stopBtn, sendBtn)));
+    composer.addEventListener("dragover", function (e) { e.preventDefault(); });
+    composer.addEventListener("drop", function (e) { e.preventDefault(); addFiles(e.dataTransfer.files); });
+    d.appendChild(h("div", { class: "drawer-h" },
+      h("div", { class: "grow" }, h("h2", { text: "Ask Claude" }), h("div", { class: "small muted", text: IG.handle() + " · never posts for you" })),
+      IG.btn("New chat", { cls: "ghost sm", icon: "plus", onClick: function () {
+        if (chat.running) { IG.toast("Stop the current reply first."); return; }
+        chat.session_id = null; chat.messages = []; chat.cleared = Date.now(); save(); renderLog();
+      } }),
+      h("button", { class: "btn ghost sm", type: "button", "aria-label": "Close", onclick: IG.closeChat }, IG.icon("x"))));
+    d.appendChild(h("div", { class: "chat" }, log, composer));
+    renderLog();
+    if (p && p.attachments && p.attachments.length) { ui.pending = p.attachments.slice(); drawAttach(); }
+    if (p && p.prompt) {
+      if (p.send && !chat.running) { send(p.prompt, ui.pending.slice()); ui.pending = []; drawAttach(); }
+      else setInput(p.prompt);
+    } else input.focus();
+  }
 })();

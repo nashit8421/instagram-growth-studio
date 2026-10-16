@@ -55,13 +55,13 @@
 
   function actionFor(a) {
     var sk = (a.skill || "").split(" ")[0];
-    if (sk === "/ig-calendar") return function () { IG.go("calendar"); };
-    if (sk === "/ig-edit") return function () { IG.go("create", { tool: "video" }); };
+    if (sk === "/ig-calendar" || sk === "/ig-plan") return function () { IG.go("week"); };
+    if (sk === "/ig-edit") return function () { IG.go("week"); };
     return function () { IG.ask(sk + " " + a.action + ". (From my weekly growth plan: " + a.why + ")"); };
   }
 
   IG.screen("growth", {
-    title: "Growth", icon: "growth",
+    title: "Growth", icon: "growth", group: "results",
     render: function (view, params, m) {
       view.classList.add("stack");
       var top = h("div", { class: "grid-2", style: { alignItems: "start" } });

@@ -182,7 +182,7 @@
         IG.card("Slides", "Write the approved copy. Slide 1 is the cover.", h("div", { class: "stack-sm" },
           kindSeg, list,
           h("div", { class: "row" }, IG.btn("Add slide", { icon: "plus", onClick: function () { items().push({ title: "", body: "" }); persist(); draw(); } }),
-            IG.btn("Load example", { cls: "ghost", onClick: function () { spec = JSON.parse(JSON.stringify(EXAMPLE)); spec.handle = handle.value; persist(); IG.render("create"); } })),
+            IG.btn("Load example", { cls: "ghost", onClick: function () { spec = JSON.parse(JSON.stringify(EXAMPLE)); spec.handle = handle.value; persist(); IG.render("tools"); } })),
           h("div", { class: "form-grid" }, IG.field("Handle on slides", handle), IG.field("Cover alt text", alt, null, "span-all")),
           h("div", null, IG.btn("Render images", { cls: "primary", onClick: render })))),
         IG.card("Images", "1080×1350 for carousels, 1080×1920 for stories", out.childNodes.length ? out : (out.appendChild(h("p", { class: "muted small", text: "Rendered slides show up here with a grid-crop preview and alt text." })), out))));
@@ -430,8 +430,8 @@
   }
 
   var BUILDERS = { hooks: hooks, beats: beats, caption: caption, human: human, carousel: carousel, video: video };
-  IG.screen("create", {
-    title: "Create", icon: "create",
+  IG.screen("tools", {
+    title: "Tools", icon: "create", hidden: true,
     render: function (view, params) {
       var cur = params.tool || sessionStorage.getItem("igcreate") || "hooks";
       if (!BUILDERS[cur]) cur = "hooks";

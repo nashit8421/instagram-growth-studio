@@ -108,7 +108,15 @@ the checklist score, and the storyboard (`storyboard.html`, or in IG Studio's
 video tool). With `--preview` there is a low-res `preview.mp4` they can play.
 Ask: "Render it, or change something?" Apply what they ask, storyboard again.
 
-Never render before they say yes.
+Never render before they say yes. The one exception is IG Studio's
+auto-render: when the prompt says the app renders after you, stop after the
+revision round and do not render yourself. The app renders, shows the user
+the storyboard next to the finished Reel, and they can still change it.
+
+**Directing a planned post.** When the prompt carries a post kit from
+`week.json` (hook, script, shot list, mood, length), that is the brief: open
+on its hook, keep its on-screen text, follow its beats. Change it only where
+the footage disagrees, and say where.
 
 ### 7. Render
 
@@ -141,7 +149,8 @@ from `sound.json`'s `suggested_audio` with its volume. Then hand over to
 
 ## Rules
 
-- **The user approves the storyboard before the render.** Always.
+- **The user approves the storyboard before the render**, unless IG Studio's
+  auto-render is on; then the app renders and the user reviews the result.
 - **Never post.** The user uploads.
 - **No unlicensed music burned in.** Trending sounds are added in Instagram.
 - **No promises of virality.** The checklist and critic raise the odds and

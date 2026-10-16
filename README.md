@@ -122,8 +122,10 @@ The checklist covers what keeps people watching: something to read or hear by 0.
 hook text on frame 1 (the feed thumbnail), the strongest line first, a visual change
 at least every 4.5s, no dead air, captions big and short and clear of the face and the
 Instagram buttons, a payoff and a loop, one ask, and no unlicensed music burned in.
-In IG Studio it is **Create → Video editor → Direct with Claude**. Nothing renders until
-you approve the storyboard, and nothing is ever posted.
+In IG Studio, drop the footage into a planned post's **Edit it** step: the director uses
+that post's hook and script as the brief and renders straight away (you can still
+change it and re-render). From the command line, nothing renders until you approve the
+storyboard. Nothing is ever posted.
 
 ## Safety, plainly
 

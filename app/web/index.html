@@ -6,55 +6,45 @@
 <meta name="color-scheme" content="light dark">
 <title>IG Studio</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <a class="skip" href="#view">Skip to content</a>
-<div class="app" id="app">
-  <aside class="side" aria-label="Main">
-    <div class="brand">
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#week" aria-label="IG Studio, this week">
       <span class="logo" aria-hidden="true"></span>
       <span class="brand-name">IG Studio</span>
+    </a>
+    <nav class="nav" id="nav" aria-label="Main"></nav>
+    <div class="top-right">
+      <label class="acct" for="acct-select">
+        <span class="sr">Active account</span>
+        <span class="acct-at" aria-hidden="true">@</span>
+        <select id="acct-select"></select>
+      </label>
+      <button class="btn sm ask-btn" id="ask-btn" type="button" aria-controls="drawer" aria-expanded="false"></button>
+      <a class="icon-btn" id="settings-btn" href="#settings" aria-label="Settings" title="Settings"></a>
     </div>
-    <nav class="nav" id="nav"></nav>
-    <div class="side-foot">
-      <span class="dot" id="side-dot" aria-hidden="true"></span>
-      <span id="side-status">Local only. Nothing is posted.</span>
-    </div>
-  </aside>
-  <div class="main">
-    <header class="top">
-      <div class="top-left">
-        <span class="logo sm only-mobile" aria-hidden="true"></span>
-        <h1 class="page-title" id="page-title">Today</h1>
-      </div>
-      <div class="top-right">
-        <label class="acct" for="acct-select">
-          <span class="sr">Active account</span>
-          <span class="acct-at" aria-hidden="true">@</span>
-          <select id="acct-select"></select>
-        </label>
-      </div>
-    </header>
-    <nav class="tabs only-mobile" id="tabs" aria-label="Screens"></nav>
-    <div id="install-banner" class="install-banner" hidden></div>
-    <div id="kweo-banner" class="install-banner" hidden></div>
-    <div id="setup-banner" class="install-banner" hidden></div>
-    <main id="view" class="view" tabindex="-1"></main>
   </div>
-</div>
+</header>
+<div id="notice" class="notice-wrap" hidden></div>
+<main id="view" class="view" tabindex="-1"></main>
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-label="Ask Claude" hidden></aside>
 <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
-<script src="js/md.js?v=1"></script>
-<script src="js/core.js?v=1"></script>
-<script src="js/today.js?v=1"></script>
-<script src="js/account.js?v=1"></script>
-<script src="js/assistant.js?v=1"></script>
-<script src="js/create.js?v=1"></script>
-<script src="js/posts.js?v=1"></script>
-<script src="js/growth.js?v=1"></script>
-<script src="js/trends.js?v=1"></script>
-<script src="js/calendar.js?v=1"></script>
-<script src="js/settings.js?v=1"></script>
-<script src="js/main.js?v=1"></script>
+<script src="js/md.js?v=2"></script>
+<script src="js/core.js?v=2"></script>
+<script src="js/forms.js?v=2"></script>
+<script src="js/week.js?v=2"></script>
+<script src="js/post.js?v=2"></script>
+<script src="js/account.js?v=2"></script>
+<script src="js/posts.js?v=2"></script>
+<script src="js/growth.js?v=2"></script>
+<script src="js/trends.js?v=2"></script>
+<script src="js/create.js?v=2"></script>
+<script src="js/assistant.js?v=2"></script>
+<script src="js/settings.js?v=2"></script>
+<script src="js/main.js?v=2"></script>
 </body>
 </html>

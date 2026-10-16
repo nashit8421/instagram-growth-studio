@@ -773,3 +773,155 @@ class ProfileFixTests(Base):
         allowed = allowed[allowed.index("--allowedTools") + 1].split(",")
         self.assertNotIn("mcp__kweo__browser_click", allowed)
         self.assertNotIn("mcp__kweo__browser_type", allowed)
+
+
+class WeekTests(Base):
+    """The Week screen: autopilot runs, post kits, progress, and directing a planned post."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        os.environ["IG_SKILLS_DIR"] = os.path.join(os.path.dirname(HERE), "..", "skills")
+
+    @classmethod
+    def tearDownClass(cls):
+        os.environ.pop("IG_SKILLS_DIR", None)
+        super().tearDownClass()
+
+    def setUp(self):
+        for p in (os.path.join(server.data_dir(), "week.json"), server.studio_path("autopilot.json"),
+                  server.studio_path("week-status.json")):
+            if os.path.exists(p):
+                os.remove(p)
+        shutil.rmtree(server.studio_path("weeks"), ignore_errors=True)
+        self.target = server.plan_monday(server.dt.date.today()).isoformat()
+
+    def write_week(self, week_of=None):
+        week_of = week_of or self.target
+        post = {"id": "mon", "day": "MON", "date": week_of, "time": "19:30", "format": "reel", "type": "proof",
+                "title": "One line, three emotions", "length_s": 20, "trial": False,
+                "hook": {"spoken": "Ek line, teen emotions.", "on_screen": "Kaunsa wala real tha?", "formula": 18},
+                "script": [{"t": "0-2s", "say": "Ek line, teen emotions.", "on_screen": "Kaunsa wala real tha?"}],
+                "direction": {"mood": "dramatic", "concept": "same line three ways", "setup": {},
+                              "shots": [{"n": 1, "action": "look in the lens"}]},
+                "caption": {"text": "Kaunsa wala real tha?", "hashtags": ["#acting"]}}
+        with open(os.path.join(server.data_dir(), "week.json"), "w", encoding="utf-8") as f:
+            json.dump({"version": 1, "week_of": week_of, "headline": "One reel", "posts": [post]}, f)
+
+    def test_no_week_needs_preparing(self):
+        st, j, _, _ = self.req("GET", "/api/week")
+        self.assertEqual(st, 200, j)
+        self.assertIsNone(j["week"])
+        self.assertTrue(j["needs_prepare"])
+        self.assertEqual(j["target"], self.target)
+        self.assertFalse(j["autopilot"]["running"])
+
+    def test_week_is_archived_and_shown_with_progress(self):
+        self.write_week()
+        st, j, _, _ = self.req("GET", "/api/week")
+        self.assertEqual(st, 200, j)
+        self.assertFalse(j["needs_prepare"])
+        self.assertEqual(j["weeks"], [self.target])
+        self.assertTrue(os.path.isfile(server.studio_path("weeks", self.target + ".json")))
+        post = j["week"]["posts"][0]
+        self.assertEqual(post["progress"]["stage"], "script")
+        self.assertIsNone(post["progress"]["edit"])
+
+    def test_stages_and_posting_logs_to_the_ledger_once(self):
+        self.write_week()
+        st, j, _, _ = self.req("POST", "/api/week/post", {"week_of": self.target, "id": "mon", "stage": "flying"})
+        self.assertEqual(st, 400)
+        st, j, _, _ = self.req("POST", "/api/week/post", {"week_of": self.target, "id": "nope", "stage": "filmed"})
+        self.assertEqual(st, 404)
+        st, j, _, _ = self.req("POST", "/api/week/post", {"week_of": self.target, "id": "mon", "stage": "filmed"})
+        self.assertEqual(st, 200, j)
+        self.assertEqual(j["progress"]["stage"], "filmed")
+        if not server.script_path("ig-ledger/ledger.py"):
+            self.skipTest("ig-ledger not available")
+        st, j, _, _ = self.req("POST", "/api/week/post", {"week_of": self.target, "id": "mon", "stage": "posted"})
+        self.assertEqual(st, 200, j)
+        lid = j["progress"].get("ledger_id")
+        self.assertTrue(lid and lid.startswith("P"), j)
+        st, j, _, _ = self.req("POST", "/api/week/post", {"week_of": self.target, "id": "mon", "stage": "posted"})
+        self.assertEqual(j["progress"]["ledger_id"], lid)          # never logged twice
+        st, led, _, _ = self.req("GET", "/api/ledger")
+        rows = [r for r in led["posts"] if r.get("id") == lid]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["first_line"], "Kaunsa wala real tha?")
+
+    def test_autopilot_writes_the_week_and_is_logged(self):
+        st, j, _, _ = self.req("POST", "/api/week/prepare", {"note": "WRITEWEEK", "handle": "zara.abbasi22"})
+        self.assertEqual(st, 200, j)
+        self.assertEqual(j["week_of"], self.target)
+        evs = self.events(j["job"])
+        self.assertEqual(evs[-1]["status"], "done", evs[-1])
+        prompt = self.fake_calls()[-1]["prompt"]
+        for bit in ("/ig Autopilot", "week of Monday " + self.target, "ask me nothing", "week.py check",
+                    "plan-md", "@zara.abbasi22"):
+            self.assertIn(bit, prompt)
+        st, w, _, _ = self.req("GET", "/api/week")
+        self.assertEqual(w["week"]["headline"], "Fake week")
+        self.assertFalse(w["needs_prepare"])
+        self.assertEqual(w["autopilot"]["status"], "done")
+        st, h, _, _ = self.req("GET", "/api/chat/history")
+        self.assertTrue(any(r["job"] == j["job"] and r["prompt"].startswith("Prepare my week") for r in h["entries"]))
+
+    def test_autopilot_without_a_week_fails_and_does_not_loop(self):
+        st, j, _, _ = self.req("POST", "/api/week/prepare", {"auto": True})
+        self.assertEqual(st, 200, j)
+        evs = self.events(j["job"])
+        self.assertEqual(evs[-1]["status"], "error")
+        self.assertIn("without writing this week's plan", evs[-1]["error"])
+        for _ in range(50):
+            st, w, _, _ = self.req("GET", "/api/week")
+            if w["autopilot"]["status"] != "running":
+                break
+            time.sleep(0.1)
+        self.assertTrue(w["autopilot"]["auto_blocked"])
+        st, j, _, _ = self.req("POST", "/api/week/prepare", {"auto": True})
+        self.assertEqual(st, 409)                                       # the page does not retry by itself
+        st, j, _, _ = self.req("POST", "/api/week/prepare", {"note": "WRITEWEEK"})
+        self.assertEqual(st, 200, j)                                    # a press of the button does
+        self.events(j["job"])
+
+    def test_auto_prepare_skips_a_prepared_week(self):
+        self.write_week()
+        st, j, _, _ = self.req("POST", "/api/week/prepare", {"auto": True})
+        self.assertEqual(st, 409)
+
+    def test_directing_a_planned_post_uses_its_kit_and_auto_renders(self):
+        if not server.script_path("ig-direct/direct.py"):
+            self.skipTest("ig-direct not available")
+        self.write_week()
+        self.req("GET", "/api/week")
+        src = os.path.join(server.data_dir(), "uploads", "take1.mp4")
+        os.makedirs(os.path.dirname(src), exist_ok=True)
+        with open(src, "wb") as f:
+            f.write(b"not a video")
+        st, j, _, _ = self.req("POST", "/api/video/direct", {"path": src, "post_id": "mon", "week_of": self.target})
+        self.assertEqual(st, 200, j)
+        self.assertTrue(j["auto_render"])
+        self.assertTrue(os.path.basename(j["dir"]).startswith(self.target + "-mon-direct-"))
+        evs = self.events(j["job"])
+        prompt = self.fake_calls()[-1]["prompt"]
+        for bit in ("Ek line, teen emotions.", "Kaunsa wala real tha?", "Mood: dramatic", "20 seconds",
+                    "auto-render", "STOP at step 6", "Do not render"):
+            self.assertIn(bit, prompt)
+        self.assertEqual(evs[-1]["status"], "error")                    # the fake made no storyboard
+        self.assertIn("without a storyboard", evs[-1]["error"])
+        st, w, _, _ = self.req("GET", "/api/week")
+        prog = w["week"]["posts"][0]["progress"]
+        self.assertEqual(prog["stage"], "filmed")
+        self.assertEqual(prog["edit"]["dir"], j["dir"])
+        self.assertIn("without a storyboard", prog["edit"]["error"])
+
+    def test_redo_one_post(self):
+        self.write_week()
+        self.req("GET", "/api/week")
+        st, j, _, _ = self.req("POST", "/api/week/redo", {"week_of": self.target, "id": "mon", "note": "funnier"})
+        self.assertEqual(st, 200, j)
+        self.events(j["job"])
+        prompt = self.fake_calls()[-1]["prompt"]
+        self.assertIn('id "mon"', prompt)
+        self.assertIn("funnier", prompt)
+        self.assertIn("Keep every other post exactly as it is", prompt)

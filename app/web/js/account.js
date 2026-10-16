@@ -192,28 +192,7 @@
           h("div", { class: "sub", text: "Scanned " + IG.date((a.scanned_at || "").slice(0, 10)) + " from " + (a.sources || [a.source]).join(", ") + " · " + IG.n(a.n_feed) + " posts read" })),
         IG.btn("Re-run analysis", { cls: "sm", icon: "refresh", onClick: function () { return IG.post("/api/scan/analyze").then(function () { IG.toast("Analysis updated"); refresh(); }); } })),
       a.bio ? h("p", { class: "pre", text: a.bio }) : null,
-      h("div", { class: "row", style: { marginTop: "12px" } },
-        IG.btn("Use this to set my profile", { cls: "primary", onClick: function () {
-          return IG.post("/api/scan/prefill").then(function (r) {
-            var close = IG.dialog("Confirm your profile", h("div", { class: "stack-sm" },
-              h("p", { class: "small muted", text: "Suggestions from your scan. Change anything that's off, then save." }),
-              IG.profileForm(Object.assign({}, (IG.state && IG.state.profile) || {}, r.fields), function () { close(); IG.state = null; }, { why: r.why })), []);
-          });
-        } }),
-        IG.btn("Import posts into my ledger", { onClick: function () {
-          return IG.post("/api/scan/to-ledger", { dry_run: true }).then(function (r) {
-            var x = r.result || {};
-            IG.dialog("Import scanned posts", h("div", { class: "stack-sm" },
-              h("p", { text: "This adds " + IG.n(x.created || 0) + " new posts and updates " + IG.n(x.updated || 0) + " in your ledger" + (x.unchanged ? " (" + x.unchanged + " already there)" : "") + "." }),
-              h("p", { class: "small muted", text: "Hook formulas and themes are filled where the scan found them. You can edit any row on the Posts screen." })),
-              [{ label: "Cancel" }, { label: "Import", primary: true, onClick: function (close) {
-                return IG.post("/api/scan/to-ledger", { dry_run: false }).then(function (r2) { close(); IG.toast("Imported " + IG.n((r2.result || {}).created || 0) + " posts"); });
-              } }]);
-          });
-        } }),
-        IG.btn("Draft my voice from these posts", { icon: "assistant", onClick: function () {
-          IG.ask("/ig-reel Do only the voice step: draft voice.md from my scanned posts (account.md and the captions the scan saved). Show me the draft before you save it.");
-        } }))));
+      h("p", { class: "small muted", style: { marginTop: "10px" }, text: "Claude uses this to plan every week: your niche, voice and what already works. Rescan any time; it does so itself every month." })));
 
     wrap.appendChild(h("div", { class: "stats" },
       IG.stat("Followers", IG.n(size.followers), size.following != null ? "following " + IG.n(size.following) : null),
@@ -221,7 +200,7 @@
       IG.stat("Posts / week", cad.per_week_30d != null ? String(cad.per_week_30d) : "–", cad.per_week_90d != null ? cad.per_week_90d + " over 90 days" : null),
       IG.stat("Consistency", cad.consistency != null ? cad.consistency + "%" : "–", cad.longest_gap_days != null ? "longest gap " + cad.longest_gap_days + "d" : null),
       IG.stat("Engagement", perf.er_median != null ? perf.er_median + "%" : "–", "median per post"),
-      IG.stat("Niche guess", niche.label || "–", niche.confidence ? niche.confidence + " confidence" : null)));
+      data.niche ? IG.stat("Niche", data.niche, "Claude's read") : IG.stat("Niche guess", niche.label || "–", niche.confidence ? niche.confidence + " confidence" : null)));
 
     var fm = a.format_mix || {};
     var best = [["Best format", bestOf(wp.format)], ["Best hook formula", bestOf(wp.formula)], ["Best theme", bestOf(wp.theme)]];
@@ -333,12 +312,14 @@
   }
 
   IG.screen("account", {
-    title: "Account", icon: "account",
+    title: "Account", icon: "account", group: "results",
     render: function (view, params, m) {
       view.classList.add("stack");
       view.appendChild(IG.loading());
       var refresh = function () { IG.render("account"); };
-      return IG.get("/api/scan").then(function (data) {
+      return Promise.all([IG.get("/api/scan"), IG.get("/api/state?quick=1").catch(function () { return null; })]).then(function (res) {
+        var data = res[0];
+        data.niche = res[1] && res[1].profile ? res[1].profile.niche : null;
         if (!IG.alive(m)) return;
         IG.clear(view);
         var fixBox = h("div");

@@ -1,10 +1,27 @@
 # IG Studio
 
-A friendly local app for the ig- Instagram skill pack. Double-click it, it opens in
-your browser, and everything the skills do has a button: today's next steps, your
-account scan, a chat with Claude that runs the skills, instant tools (hook scorer,
-script timer, caption checker, humanizer, carousel maker, video editor), your post
-ledger, growth chart, trends, sounds and the week's calendar.
+A local app for the ig- Instagram skill pack. Double-click it and it opens in your
+browser. Type a handle once; from then on Claude prepares each week by itself and the
+app shows it.
+
+- **This week** (home): the week's posts by day, today's to-dos, the comment round.
+  Each post opens as a kit: **Say this** (hook, timed script, a teleprompter),
+  **Film it** (the director's setup and shot list), **Edit it** (drop the footage;
+  Claude's director cuts, captions, grades and renders the Reel), **Post it** (the
+  caption to copy, the sound, the cover, and "I posted it", which logs it).
+- **Results**: the account scan, every post and its numbers, follower growth, trends
+  and sounds.
+- **Ask Claude**: a side panel, for changes ("make Thursday funnier") or anything else.
+- **Settings** (the gear): accounts, profile details, the hand tools (hook scorer,
+  script timer, caption checker, humanizer, carousel maker, video editor), system checks.
+
+How the week gets made: when there is no plan for the coming week (Mon to Wed: this
+week; Thu to Sun: next week) and Claude Code is installed, the app starts an
+**autopilot** run on its own: it scans the account if needed, finds the growth
+bottleneck, checks trends, picks the posts and writes every kit into `week.json`
+(see the ig skill's Autopilot section; `skills/ig/week.py` checks it). A run that
+fails is not retried automatically for 6 hours; the page says why and offers a button.
+Each run costs Claude usage, roughly one long session per week per account.
 
 ## Start it
 
@@ -35,8 +52,9 @@ Launching again while it runs just reopens the running one.
 
 - Python 3.9 or newer (nothing to pip install).
 - The ig skills in `~/.claude/skills` (or set `IG_SKILLS_DIR`).
-- For the Assistant: [Claude Code](https://claude.com/claude-code), logged in with your
-  Claude subscription. Without it, every non-AI screen still works.
+- [Claude Code](https://claude.com/claude-code), logged in with your Claude
+  subscription. It prepares the week; without it, Results, Settings and the hand tools
+  still work.
 - Optional: ffmpeg (video editor), Google Chrome (carousel images), Whisper (word-timed
   captions), kweo (lets Claude read Instagram in your own logged-in browser). Settings
   shows what's found and how to add what's missing.
@@ -50,8 +68,9 @@ Launching again while it runs just reopens the running one.
   text or files that you post yourself.
 - Your data stays in the skills' data folder (`~/IGStudio`, one folder per
   account). Settings → Open folder shows it.
-- Only Claude goes online, and only when you ask: research, and your Google Calendar
-  after you say yes in the chat. An Instagram API token (Account → Advanced) is passed
+- Only Claude goes online: reading the account in kweo and researching trends while it
+  prepares the week, and your Google Calendar only after you say yes in the chat. An
+  Instagram API token (Results → Account → Rescan → API token) is passed
   to the scanner for that one run and never saved.
 
 ## For developers

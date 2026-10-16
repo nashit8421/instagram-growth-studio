@@ -60,6 +60,65 @@ do". Then one line of what you assumed, which the user can correct.
 | create_today | the route shown | draft approved, files made, logged with /ig-ledger |
 | engage | /ig-comment | user has their comments to post by hand |
 
+## Autopilot: the whole week as post kits (IG Studio)
+
+When the prompt says **Autopilot**, prepare the week end to end and ask the
+user nothing. IG Studio's home screen shows the result, so the deliverable is
+a file, `week.json`, not a chat message. Budget: one run, about 10 minutes.
+
+```bash
+W=~/.claude/skills/ig/week.py
+python3 $W monday                 # the Monday to plan (Mon-Wed: this week, Thu-Sun: next)
+python3 $W schema                 # the exact shape, filled in
+python3 $W check "$DATA/week.json" --fix --json
+python3 $W plan-md "$DATA/week.json"
+```
+
+1. **Where are we.** `state.py --json`. Read `account.md`, `voice.md`,
+   `profile.json`, `trends.md`, `swipe.md` if they exist.
+2. **Scan if needed.** No scan, or older than 30 days: run /ig-scan on the
+   active handle with kweo and do its Step 3 (save profile, voice, ledger,
+   baseline). If kweo is not ready and there is no scan, say so in one line
+   and stop: there is nothing true to plan from.
+3. **Bottleneck.** Check in followers if there is no check-in today (scan
+   count), then `grow.py report` and `grow.py plan`.
+4. **Trends.** If `trends.md` is missing or over 7 days old, run /ig-trends
+   (web search when kweo is off). Keep it to the few searches that matter.
+5. **The slots.** Follow /ig-plan: 4 to 5 posts, at least 3 reels, the type
+   mix, the audience's evening, dated trends on their dates.
+6. **A kit per post.** For every slot write what the user needs to make it
+   without asking anyone:
+   - `hook`: the spoken first line and the on-screen text, from /ig-reel's
+     formulas. Score 3 to 5 candidates with `ig-reel/hookscore.py` and keep
+     the best; put its score in `hook.score`.
+   - `script`: timed beats (`t`, `say`, `on_screen`, `shot`). Time it with
+     `ig-reel/beats.py`. Reels 15 to 35 seconds unless the idea needs more.
+   - `direction`: the director's notes for filming on a phone, in the same
+     vocabulary as /ig-direct: `concept`, `mood`, `setup` (location, light,
+     framing, wardrobe, props), numbered `shots` (frame, action, line,
+     seconds), `delivery` tips, `takes`, and `avoid` (Instagram's buttons
+     cover the bottom fifth and the right edge). Concrete enough that a
+     friend holding the phone could shoot it.
+   - `caption`: /ig-caption rules (the first line survives "... more", one
+     ask, 3 hashtags). Lint with `ig-caption/caption.py`.
+   - `sound`: /ig-audio's pick, with how to add it in Instagram.
+   - `cover`: the cover text and which frame.
+   - Carousels get `slides` instead of a script and shots.
+   - Never invent facts: an event, a client, a number. Where the user has to
+     supply one, the script says so in braces, like `{{your number}}`, and
+     the shot tells them what to film.
+   - Run every caption and script line through `ig-human/humanize.py`.
+7. **Around the posts.** `stories` per day, the `engage` round, and `todo`:
+   only what the user does with their hands (film, post, comment, send
+   numbers), dated. Batch filming the day before, or two reels per setup.
+8. **Write and check.** Write `week.json` in the data folder, run `check
+   --fix` until it says OK, then `plan-md` so plan.md, /ig-calendar and
+   state.py stay in step.
+
+End with three short lines: the headline, the first thing to do and when,
+and what you assumed. The user changes anything by telling Claude; a change
+to one post rewrites that post in `week.json` and runs `check` again.
+
 ## Today's post, end to end
 
 For a **reel**: /ig-reel (hooks scored, script, beat sheet, humanized) →

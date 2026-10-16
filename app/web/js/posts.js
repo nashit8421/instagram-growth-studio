@@ -221,7 +221,7 @@
   }
 
   IG.screen("posts", {
-    title: "Posts", icon: "posts",
+    title: "Posts", icon: "posts", group: "results",
     render: function (view, params) {
       var tab = params.tab || sessionStorage.getItem("igposts") || "ledger";
       var body = h("div", { class: "stack" });

@@ -731,8 +731,10 @@ def system_context():
         f"The active account is {'@' + acct if acct else 'the single default account'}; its data folder is "
         f"{data_dir()} and every file you make goes there. When you create files (images, videos, .ics, "
         "markdown), mention their full absolute paths so the app can preview them. Keep replies short and "
-        "scannable: short paragraphs, lists, and fenced blocks only for copy-ready text. The app also has "
-        "Today, Account, Create, Posts, Growth, Trends & Sound, Calendar and Settings screens."
+        "scannable: short paragraphs, lists, and fenced blocks only for copy-ready text. The app's home is the "
+        "Week screen, drawn from week.json (see the ig skill's Autopilot section): when the user asks to change "
+        "a planned post, edit that post in week.json and run week.py check --fix. There is also a Results "
+        "screen (account scan, posts, growth, trends) and Settings."
     )
 
 
@@ -930,7 +932,7 @@ class ChatRun:
             self.offer_file(p)
 
 
-def run_chat_job(job, server, prompt, session_id, extra_tools=None):
+def run_chat_job(job, server, prompt, session_id, extra_tools=None, after_ok=None):
     claude = find_claude()
     if not claude:
         job.finish("error", error="Claude Code is not installed. Install it from https://claude.com/claude-code.")
@@ -965,6 +967,15 @@ def run_chat_job(job, server, prompt, session_id, extra_tools=None):
         return
     job.result = {"session_id": run.session_id, "cost_usd": run.final.get("total_cost_usd"),
                   "turns": run.final.get("num_turns")}
+    if after_ok:
+        try:
+            after_ok(job, run)
+        except ApiError as e:
+            job.finish("cancelled" if job.cancelled else "error", error=e.message, session_id=run.session_id)
+            return
+        except Exception as e:  # noqa: BLE001
+            job.finish("error", error=f"{type(e).__name__}: {e}", session_id=run.session_id)
+            return
     job.emit("result", data=job.result)
     job.finish("done", session_id=run.session_id)
 
@@ -2497,7 +2508,7 @@ def direct_dir(value):
     return d
 
 
-def direct_prompt(src, folder, body):
+def direct_prompt(src, folder, body, auto_render=False):
     mood = body.get("mood") or "auto"
     if mood not in DIRECT_MOODS:
         raise ApiError(400, "Unknown mood.")
@@ -2523,8 +2534,11 @@ def direct_prompt(src, folder, body):
         f"What I want: {notes or '(nothing extra; make it as watchable as you can)'}\n\n"
         "Do steps 1 to 5: analyze, write the brief, fire up the section agents, merge, "
         "storyboard with --preview, the critic and one revision round. Then STOP at step 6. "
-        "Do not render: I approve the storyboard in IG Studio first. End with a short summary "
-        "for me: the concept, mood, length, hook, checklist score and anything I should know.")
+        + ("Do not render: IG Studio's auto-render renders the Reel right after you finish, so make the "
+           "storyboard final. Ask me nothing. "
+           if auto_render else "Do not render: I approve the storyboard in IG Studio first. ")
+        + "End with a short summary for me: the concept, mood, length, hook, checklist score and "
+        "anything I should know.")
 
 
 @route("POST", "/api/video/direct")
@@ -2532,17 +2546,53 @@ def api_video_direct(h, body):
     src = safe_data_path(body.get("path"))
     if os.path.splitext(src)[1].lower() not in UPLOAD_KINDS["video"][0]:
         raise ApiError(400, "Pick a video file.")
-    stem = sanitize_filename(os.path.splitext(os.path.basename(src))[0] + ".x")[:-2][:40] or "reel"
+    body = dict(body)
+    post, week_of = None, None
+    if body.get("post_id"):
+        week_of, post = week_post(body.get("week_of"), body.get("post_id"))
+        body.update(post_brief(post))
+    auto_render = bool(body.get("auto_render", post is not None))
+    if post is not None:
+        stem = f"{week_of}-{post['id']}"
+    else:
+        stem = sanitize_filename(os.path.splitext(os.path.basename(src))[0] + ".x")[:-2][:40] or "reel"
     folder = os.path.join(data_dir(), "edits", f"{stem}-direct-{stamp()}")
-    prompt = direct_prompt(src, folder, body)
+    prompt = direct_prompt(src, folder, body, auto_render)
     if not find_claude():
         raise ApiError(503, "Claude Code is not installed.", {"install": "https://claude.com/claude-code"})
     if not script_path("ig-direct/direct.py"):
         raise ApiError(503, "The director skill (ig-direct) is not installed yet. Install the skills first.")
     os.makedirs(folder, exist_ok=True)
     job = h.new_job("chat", "Directing " + os.path.basename(src))
-    start_thread(run_chat_job, job, h.server, prompt, None)
-    return {"job": job.id, "dir": folder}
+    if post is not None:
+        week_status_put(week_of, post["id"], edit_dir=folder, edit_job=job.id, footage=src,
+                        stage=max_stage(week_status_get(week_of, post["id"]).get("stage"), "filmed"))
+    start_thread(run_chat_job, job, h.server, prompt, None, None,
+                 direct_auto_render(folder) if auto_render else None)
+    return {"job": job.id, "dir": folder, "auto_render": auto_render}
+
+
+def direct_auto_render(folder):
+    """After the director's run: render the Reel straight away (IG Studio's auto-render)."""
+    def after(job, run):
+        if not os.path.isfile(os.path.join(folder, "storyboard.json")):
+            raise ApiError(400, "The director finished without a storyboard, so nothing was rendered. "
+                                "Try again, or ask Claude what went wrong.")
+        sp = script_path("ig-direct/direct.py")
+        if not sp:
+            raise ApiError(503, "ig-direct is not installed.")
+        job.emit("tool", id="auto-render", summary=DIRECT_STEPS["render"], sub=False)
+        rc, out, err = run_process(job, [sys.executable, "-I", sp, "render", folder, "--json"],
+                                   child_env(True), data_dir(), 4 * 3600)
+        if job.cancelled:
+            raise ApiError(499, "Cancelled.")
+        rep = parse_json_out(out)
+        ok = rc == 0 and isinstance(rep, dict) and not rep.get("error")
+        job.emit("tool_done", id="auto-render", error=not ok)
+        if not ok:
+            raise ApiError(400, (rep or {}).get("error") if isinstance(rep, dict) and rep.get("error")
+                           else friendly_error(err, out))
+    return after
 
 
 @route("POST", "/api/video/direct/revise")
@@ -2659,6 +2709,360 @@ def api_video_cover(h, body):
 
 
 # ---------------------------------------------------------------- A/B tests
+
+# ---------------------------------------------------------------- the week: autopilot and post kits
+#
+# Claude (the ig skill's Autopilot section) writes week.json: every post as a kit
+# (hook, script, the director's filming notes, caption, sound). IG Studio keeps a
+# copy of each week in .studio/weeks/ so planning next week never loses this one,
+# and tracks each post's progress (filmed, edited, posted) in .studio/week-status.json.
+
+WEEK_STAGES = ("script", "filmed", "edited", "posted")
+AUTOPILOT_RETRY_S = 6 * 3600   # a failed automatic run waits this long before the page tries again
+_week_lock = threading.Lock()
+
+
+def studio_path(*parts):
+    return os.path.join(data_dir(), ".studio", *parts)
+
+
+def write_json_atomic(path, obj):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + f".{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(obj, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, path)
+
+
+def plan_monday(today):
+    """The week to prepare: this week Mon-Wed, next week Thu-Sun (same rule as ig/week.py)."""
+    start = today - dt.timedelta(days=today.weekday())
+    return start if today.weekday() <= 2 else start + dt.timedelta(days=7)
+
+
+def _valid_week(w):
+    if not isinstance(w, dict) or not isinstance(w.get("posts"), list):
+        return False
+    try:
+        return dt.date.fromisoformat(str(w.get("week_of"))).weekday() == 0
+    except ValueError:
+        return False
+
+
+def weeks_sync():
+    """Copy week.json into .studio/weeks/<week_of>.json when it is newer. Returns {week_of: path}."""
+    root = studio_path("weeks")
+    latest = os.path.join(data_dir(), "week.json")
+    w = read_json_file(latest)
+    if _valid_week(w):
+        dst = os.path.join(root, w["week_of"] + ".json")
+        try:
+            if not os.path.isfile(dst) or os.path.getmtime(latest) > os.path.getmtime(dst):
+                os.makedirs(root, exist_ok=True)
+                shutil.copy2(latest, dst)
+        except OSError:
+            pass
+    out = {}
+    if os.path.isdir(root):
+        for fn in os.listdir(root):
+            m = re.fullmatch(r"(\d{4}-\d{2}-\d{2})\.json", fn)
+            if m:
+                out[m.group(1)] = os.path.join(root, fn)
+    return out
+
+
+def week_file(week_of):
+    if not isinstance(week_of, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", week_of):
+        raise ApiError(400, "Pick a week.")
+    p = weeks_sync().get(week_of)
+    if not p:
+        raise ApiError(404, "There is no plan for that week.")
+    return p
+
+
+def week_post(week_of, post_id):
+    w = read_json_file(week_file(week_of))
+    for p in (w or {}).get("posts") or []:
+        if isinstance(p, dict) and p.get("id") == post_id:
+            return week_of, p
+    raise ApiError(404, "That post is not in this week's plan.")
+
+
+def week_status_all():
+    d = read_json_file(studio_path("week-status.json"))
+    return d if isinstance(d, dict) else {}
+
+
+def week_status_get(week_of, pid):
+    return week_status_all().get(f"{week_of}/{pid}") or {}
+
+
+def week_status_put(week_of, pid, **fields):
+    with _week_lock:
+        d = week_status_all()
+        row = d.get(f"{week_of}/{pid}") or {}
+        row.update(fields)
+        row["updated"] = time.time()
+        d[f"{week_of}/{pid}"] = row
+        write_json_atomic(studio_path("week-status.json"), d)
+        return row
+
+
+def max_stage(a, b):
+    rank = {k: i for i, k in enumerate(WEEK_STAGES)}
+    return a if rank.get(a, -1) >= rank.get(b, -1) else b
+
+
+def post_brief(post):
+    """A planned post as the director's brief: mood, length, language and the kit as notes."""
+    d = post.get("direction") if isinstance(post.get("direction"), dict) else {}
+    hook = post.get("hook") if isinstance(post.get("hook"), dict) else {}
+    mood = d.get("mood") if d.get("mood") in DIRECT_MOODS else "auto"
+    try:
+        length = int(post.get("length_s"))
+        length = length if 7 <= length <= 90 else "auto"
+    except (TypeError, ValueError):
+        length = "auto"
+    beats = []
+    for b in (post.get("script") or [])[:20]:
+        if isinstance(b, dict):
+            beats.append(f"- {b.get('t', '')} say: {b.get('say', '')} | on screen: {b.get('on_screen', '')}")
+    notes = (f"This is the planned post \"{post.get('title', '')}\" ({post.get('type', '')}). "
+             f"Concept: {d.get('concept', '')}\n"
+             f"Hook, spoken: {hook.get('spoken', '')}\nHook, on screen: {hook.get('on_screen', '')}\n"
+             "Beats:\n" + "\n".join(beats))
+    return {"mood": mood, "length": length, "lang": "auto", "notes": notes[:2000]}
+
+
+def edit_summary(srv, folder, job_id):
+    if not folder or not os.path.isdir(folder):
+        return None
+    j = srv.jobs.get(job_id) if job_id else None
+    out = {"dir": folder, "running": bool(j and not j.done), "job": job_id if j and not j.done else None,
+           "error": None, "storyboard": os.path.isfile(os.path.join(folder, "storyboard.json"))}
+    if j and j.done and j.status not in ("done",):
+        out["error"] = next((e.get("error") for e in reversed(j.events) if e.get("type") == "end"), None) \
+            or "The director stopped."
+    reel = os.path.join(folder, "reel.mp4")
+    if os.path.isfile(reel):
+        out["video"] = {"url": srv.file_url(reel), "download": srv.file_url(reel, download=True)}
+        cov = os.path.join(folder, "reel-cover.jpg")
+        if os.path.isfile(cov):
+            out["cover"] = {"url": srv.file_url(cov), "download": srv.file_url(cov, download=True)}
+    return out
+
+
+def autopilot_record():
+    d = read_json_file(studio_path("autopilot.json"))
+    return d if isinstance(d, dict) else {}
+
+
+def autopilot_state(srv):
+    rec = autopilot_record()
+    j = srv.jobs.get(rec.get("job")) if rec.get("job") else None
+    running = bool(j and not j.done)
+    if rec.get("status") == "running" and not running:
+        if j is not None:      # just ended; the record is written a moment after the job's end event
+            err = next((e.get("error") for e in reversed(j.events) if e.get("type") == "end"), None)
+            rec.update(status=j.status, error=None if j.status == "done" else err,
+                       ended=rec.get("ended") or time.time())
+        else:
+            rec.update(status="error", error=rec.get("error") or "IG Studio was restarted before the week was ready.")
+    blocked = bool(rec.get("status") == "error" and rec.get("auto")
+                   and time.time() - (rec.get("ended") or rec.get("started") or 0) < AUTOPILOT_RETRY_S)
+    return {"running": running, "job": rec.get("job") if running else None, "started": rec.get("started"),
+            "ended": rec.get("ended"), "status": "running" if running else rec.get("status"),
+            "error": None if running else rec.get("error"), "week_of": rec.get("week_of"),
+            "auto_blocked": blocked}
+
+
+@route("GET", "/api/week")
+def api_week(h, body):
+    today = dt.date.fromisoformat(h.query["today"]) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", h.query.get("today", "")) \
+        else dt.date.today()
+    this_monday = today - dt.timedelta(days=today.weekday())
+    target = plan_monday(today)
+    weeks = weeks_sync()
+    have = sorted(weeks)
+    want = h.query.get("week_of")
+    if want not in weeks:
+        want = (this_monday.isoformat() if this_monday.isoformat() in weeks
+                else target.isoformat() if target.isoformat() in weeks else (have[-1] if have else None))
+    week = read_json_file(weeks[want]) if want else None
+    if week is not None and not _valid_week(week):
+        week = None
+    statuses = week_status_all()
+    if week:
+        for p in week.get("posts") or []:
+            if not isinstance(p, dict):
+                continue
+            st = statuses.get(f"{week['week_of']}/{p.get('id')}") or {}
+            edit = edit_summary(h.server, st.get("edit_dir"), st.get("edit_job"))
+            stage = st.get("stage") or "script"
+            if edit and edit.get("video"):
+                stage = max_stage(stage, "edited")
+            footage = st.get("footage") if st.get("footage") and os.path.isfile(st.get("footage")) else None
+            p["progress"] = {"stage": stage, "ledger_id": st.get("ledger_id"), "posted_at": st.get("posted_at"),
+                             "edit": edit, "footage": footage}
+    acc = read_json_file(os.path.join(data_dir(), "account.json"))
+    return {"today": today.isoformat(), "this_monday": this_monday.isoformat(), "target": target.isoformat(),
+            "weeks": have, "week": week, "needs_prepare": target.isoformat() not in weeks,
+            "autopilot": autopilot_state(h.server), "claude": bool(find_claude()),
+            "handle": active_handle(), "scanned": bool(acc),
+            "name": (acc or {}).get("name") if isinstance(acc, dict) else None}
+
+
+def autopilot_prompt(target, handle, note, scanned):
+    week_py = script_path("ig/week.py") or os.path.join(skills_dir(), "ig", "week.py")
+    data = data_dir()
+    sunday = target + dt.timedelta(days=6)
+    who = "@" + handle if handle else "this account"
+    lines = [
+        f"/ig Autopilot. Prepare the week of Monday {target.isoformat()} to Sunday {sunday.isoformat()} "
+        f"for {who}, end to end, and ask me nothing.",
+        f"Today is {dt.date.today().isoformat()} ({dt.date.today().strftime('%A')}). Data folder: {data}",
+        "Follow the ig skill's \"Autopilot\" section exactly: every post gets its full kit "
+        "(hook, script, the director's filming notes, caption, sound, cover).",
+    ]
+    if not scanned:
+        lines.append(f"There is no account scan yet: scan {who} with kweo first (the ig-scan skill) and save "
+                     "the profile, voice, ledger and follower baseline without asking.")
+    if note:
+        lines.append(f"What I want this week: {note}")
+    lines += [
+        f"Write {os.path.join(data, 'week.json')} with week_of \"{target.isoformat()}\", then run",
+        f"  python3 {week_py} check {os.path.join(data, 'week.json')} --fix --json   (until ok is true)",
+        f"  python3 {week_py} plan-md {os.path.join(data, 'week.json')}",
+        "Finish with three short lines: the headline, the first thing to do and when, and what you assumed.",
+    ]
+    return "\n".join(lines)
+
+
+def autopilot_check(target):
+    def after(job, run):
+        w = read_json_file(os.path.join(data_dir(), "week.json"))
+        if not _valid_week(w) or w.get("week_of") != target.isoformat():
+            raise ApiError(400, "Claude finished without writing this week's plan (week.json). "
+                                "Open Ask Claude to see what happened, or press Prepare again.")
+        weeks_sync()
+    return after
+
+
+def run_autopilot(job, server, prompt, log_path, target, auto):
+    try:
+        run_chat_job_logged(job, server, prompt, None, log_path, None, autopilot_check(target))
+    finally:
+        err = next((e.get("error") for e in reversed(job.events) if e.get("type") == "end"), None)
+        with _week_lock:
+            rec = autopilot_record()
+            if rec.get("job") == job.id:
+                rec.update(status=job.status if job.status in ("done", "error", "cancelled") else "error",
+                           ended=time.time(), error=err if job.status != "done" else None)
+                try:
+                    write_json_atomic(studio_path("autopilot.json"), rec)
+                except OSError:
+                    pass
+
+
+@route("POST", "/api/week/prepare")
+def api_week_prepare(h, body):
+    auto = bool(body.get("auto"))
+    note = str(body.get("note") or "").strip()[:1500]
+    st = autopilot_state(h.server)
+    if st["running"]:
+        return {"job": st["job"], "already": True}
+    today = dt.date.today()
+    target = plan_monday(today)
+    if auto:
+        if target.isoformat() in weeks_sync():
+            raise ApiError(409, "This week is already prepared.")
+        if st["auto_blocked"]:
+            raise ApiError(409, "The last automatic run failed: " + (st["error"] or "unknown error") +
+                           " Press Prepare my week to try again.")
+    if not find_claude():
+        raise ApiError(503, "Claude Code is not installed.", {"install": "https://claude.com/claude-code"})
+    handle = str(body.get("handle") or "").strip().lstrip("@").lower() or active_handle()
+    if handle and not re.fullmatch(r"[a-z0-9._]{1,30}", handle):
+        raise ApiError(400, "That doesn't look like an Instagram handle.")
+    scanned = os.path.isfile(os.path.join(data_dir(), "account.json"))
+    prompt = autopilot_prompt(target, handle, note, scanned)
+    job = h.new_job("chat", "Preparing your week")
+    log_path = chat_log_path()
+    shown = "Prepare my week" + (f": {note}" if note else "") + (" (automatic)" if auto else "")
+    try:
+        chat_log_put(log_path, {"job": job.id, "started": time.time(), "prompt": shown, "attachments": [],
+                                "status": "running"})
+        with _week_lock:
+            write_json_atomic(studio_path("autopilot.json"), {"job": job.id, "started": time.time(),
+                                                              "status": "running", "week_of": target.isoformat(),
+                                                              "auto": auto})
+    except OSError:
+        pass
+    start_thread(run_autopilot, job, h.server, prompt, log_path, target, auto)
+    return {"job": job.id, "week_of": target.isoformat()}
+
+
+@route("POST", "/api/week/post")
+def api_week_post(h, body):
+    week_of, post = week_post(body.get("week_of"), body.get("id"))
+    stage = body.get("stage")
+    if stage not in WEEK_STAGES:
+        raise ApiError(400, "Stage must be one of " + ", ".join(WEEK_STAGES) + ".")
+    cur = week_status_get(week_of, post["id"])
+    fields = {"stage": stage}
+    if stage == "posted" and not cur.get("ledger_id"):
+        hook = post.get("hook") if isinstance(post.get("hook"), dict) else {}
+        fmt = post.get("format") if post.get("format") in ("reel", "carousel", "story", "photo") else "reel"
+        row = {"format": fmt, "date": dt.date.today().isoformat(), "theme": post.get("type"),
+               "first_line": (hook.get("on_screen") or hook.get("spoken") or post.get("title") or "")[:200],
+               "length": post.get("length_s"), "notes": f"week {week_of} {post['id']}"}
+        if isinstance(hook.get("formula"), int):
+            row["hook_formula"] = hook["formula"]
+        args = ["add"] + flags(row, LEDGER_META) + (["--trial"] if post.get("trial") else [])
+        try:
+            r = script_text("ig-ledger/ledger.py", args)
+            m = re.search(r"\bP\d{3,}\b", r["output"])
+            if m:
+                fields["ledger_id"] = m.group(0)
+        except ApiError as e:
+            fields["ledger_error"] = e.message
+        fields["posted_at"] = time.time()
+    return {"progress": week_status_put(week_of, post["id"], **fields)}
+
+
+@route("POST", "/api/week/redo")
+def api_week_redo(h, body):
+    week_of, post = week_post(body.get("week_of"), body.get("id"))
+    note = str(body.get("note") or "").strip()[:1500]
+    if not find_claude():
+        raise ApiError(503, "Claude Code is not installed.", {"install": "https://claude.com/claude-code"})
+    path = week_file(week_of)
+    latest = os.path.join(data_dir(), "week.json")
+    is_latest = (read_json_file(latest) or {}).get("week_of") == week_of
+    target = latest if is_latest else path
+    week_py = script_path("ig/week.py") or os.path.join(skills_dir(), "ig", "week.py")
+    prompt = (f"/ig Autopilot, one post only. Rewrite the post with id \"{post['id']}\" ({post.get('day')}, "
+              f"\"{post.get('title', '')}\") in {target}, with its full kit, following the ig skill's Autopilot "
+              f"section. Keep every other post exactly as it is. Ask me nothing.\n"
+              f"What I want changed: {note or 'make it stronger: a better hook and a sharper angle'}\n"
+              f"Then run: python3 {week_py} check {target} --fix --json (until ok is true)"
+              + (f" and python3 {week_py} plan-md {target}" if is_latest else "") +
+              ".\nEnd with one line on what changed.")
+    job = h.new_job("chat", "Redoing " + str(post.get("day")))
+    log_path = chat_log_path()
+    try:
+        chat_log_put(log_path, {"job": job.id, "started": time.time(), "attachments": [], "status": "running",
+                                "prompt": f"Redo {post.get('day')} \"{post.get('title', '')}\"" + (f": {note}" if note else "")})
+    except OSError:
+        pass
+
+    def synced(job_, run):
+        if target != latest:
+            return
+        weeks_sync()
+    start_thread(run_chat_job_logged, job, h.server, prompt, None, log_path, None, synced)
+    return {"job": job.id}
+
 
 @route("GET", "/api/abtest")
 def api_abtest(h, body):
@@ -2946,9 +3350,9 @@ def chat_summary(job):
             "error": error, "ended": time.time()}
 
 
-def run_chat_job_logged(job, server, prompt, session_id, log_path, extra_tools=None):
+def run_chat_job_logged(job, server, prompt, session_id, log_path, extra_tools=None, after_ok=None):
     try:
-        run_chat_job(job, server, prompt, session_id, extra_tools)
+        run_chat_job(job, server, prompt, session_id, extra_tools, after_ok)
     finally:
         try:
             chat_log_put(log_path, {"job": job.id, **chat_summary(job)})

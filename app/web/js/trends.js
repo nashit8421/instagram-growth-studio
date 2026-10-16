@@ -139,7 +139,7 @@
   }
 
   IG.screen("trends", {
-    title: "Trends & Sound", short: "Trends", icon: "trends",
+    title: "Trends & Sound", short: "Trends", icon: "trends", group: "results",
     render: function (view, params) {
       var tab = sessionStorage.getItem("igtrends") || "trends";
       var body = h("div", { class: "stack" });
