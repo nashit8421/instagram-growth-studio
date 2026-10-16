@@ -29,13 +29,23 @@ The swipe file is the user's own evidence from `/ig-viral` about which formulas
 are landing in their niche right now, and it outranks anything in this file.
 The log stops the plan repeating a theme from the last fortnight.
 
-If they do not exist, ask for four things and write them down:
+**Do not open with questions.** Work out the inputs yourself and plan:
 
-1. What the user sells, and to whom.
-2. The three or four themes they want to be known for.
-3. What actually happened this week: a client call, a number, a mistake, a
-   thing they built, an argument they had. This is where posts come from.
-4. Ten accounts worth being visible to.
+1. **What the account is for, and for whom** - from the bio, `account.md`
+   (Claude's read) and `profile.json`.
+2. **The 3 or 4 themes** - what already beats the account's median in
+   `account.md`, plus what the bio promises.
+3. **This week's real moments** - if the user mentioned any, use them. If
+   not, give each slot a *filmable prompt* drawn from a theme that works
+   ("film your next practice take, say how many takes it took"). The user
+   supplies the facts on camera; you never invent a client, a number or an
+   event. Unknown numbers stay `{{your number}}`.
+4. **Ten accounts** - from `swipe.md`, `engaged.md` or the scan. If there are
+   none, name the three kinds to look for and leave the handles to
+   /ig-comment. Do not stop for this.
+
+Say your assumptions in one line at the end, not as questions up front. If
+the user gives real moments later, swap them into the slots.
 
 ## What to post
 
@@ -110,8 +120,21 @@ STORIES  every day, 3 to 5 frames, question box on Thursday.
 ENGAGE  (5 reach / 3 peers / 2 buyers)
   ...
 
-Say "write Tuesday" and I will draft it.
+WHAT YOU NEED TO DO
+  [ ] Mon  film Tuesday's and Friday's reels (30 min, one setup)
+  [ ] Tue  post the proof reel at 7:30pm; 20-min comment round first
+  [ ] Thu  post the carousel
+  [ ] Fri  post the opinion reel
+  [ ] Sun  post the story reel
+  [ ] daily  3 to 5 story frames
+
+Say "write Tuesday" and I will script it.
 ```
+
+Lead the reply with this block: "Here's the plan for this week" and then the
+checklist. The checklist only holds what the user has to do with their own
+hands (film, post, comment, send numbers); everything Claude can do, Claude
+offers to do next.
 
 Write the plan to `plan.md` so the other skills can read
 it. Nothing is scheduled or posted anywhere. This is a plan and the user runs

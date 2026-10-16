@@ -81,21 +81,25 @@ the user to log it that way: `ledger.py update P0021 --notes "collab @peer"`.
 
 ## The weekly loop
 
-1. **Check in.** Ask the user for today's follower count, or read it from
-   their public profile with `/ig-kweo` (read only: look, never tap follow,
-   like, comment or send). Run `grow.py checkin --followers N`.
+1. **Check in.** Get today's follower count yourself: from today's scan in
+   `account.json`, else from their public profile with `/ig-kweo` (read only:
+   look, never tap follow, like, comment or send). Ask only if neither works.
+   Run `grow.py checkin --followers N`.
 2. **Fill the gaps.** If posts from last week have no numbers, get them in
    with `/ig-ledger` or `/ig-perf` first. A report on empty rows is a guess.
 3. **Report.** Run `grow.py report`. Read the bottleneck to the user in one
    sentence, with the number behind it.
 4. **Plan.** Run `grow.py plan`. Show the list as is. Do not pad it past 7.
-5. **Hand off, in order.** Walk the list top to bottom, one skill at a time.
-   Finish one before starting the next. Typical owners:
+5. **Turn it into the week.** Go straight into /ig-plan with the bottleneck
+   and the actions; do not ask "shall I start /ig-plan?". The reply is the
+   plan and the "What you need to do" checklist, with the bottleneck in one
+   line above it. Each later action is offered as a next step, not a
+   question to answer first. Typical owners:
    `/ig-profile`, `/ig-reel`, `/ig-test`, `/ig-dm`, `/ig-reply`,
    `/ig-trends`, `/ig-audio`, `/ig-perf`, `/ig-edit`, `/ig-repurpose`,
    `/ig-plan`, `/ig-comment`, `/ig-caption`, `/ig-viral`.
-6. **Calendar.** Offer `/ig-calendar` to put the week's posts and the daily
-   engagement rounds in Google Calendar.
+6. **Calendar.** Offer `/ig-calendar` in one line at the end. It adds
+   events, so it waits for a yes.
 7. **Next week, repeat.** Same day. The check-in is the scoreboard.
 
 ## The bottleneck

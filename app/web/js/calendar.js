@@ -24,7 +24,7 @@
         if (!cal.exists) {
           view.appendChild(h("div", { class: "card empty" }, h("h3", { text: "No plan for this week yet" }),
             h("p", { text: "Claude builds the week from your trends, your growth plan and what actually happened this week." }),
-            h("div", { class: "row", style: { justifyContent: "center", marginTop: "12px" } }, IG.btn("Plan my week", { cls: "primary", icon: "assistant", onClick: function () { IG.ask("/ig-plan Plan my week. What happened this week: "); } }))));
+            h("div", { class: "row", style: { justifyContent: "center", marginTop: "12px" } }, IG.btn("Plan my week", { cls: "primary", icon: "assistant", onClick: function () { IG.ask("/ig-plan Plan my week."); } }))));
           return;
         }
         var p = cal.parsed || {};

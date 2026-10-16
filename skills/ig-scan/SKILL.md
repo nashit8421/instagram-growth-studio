@@ -196,23 +196,39 @@ promise, the grid theme or the niche line. That goes double with fewer than
 10 posts, and triple when that post underperformed. Broad promise up top;
 the specific jokes go in the reels.
 
-## Step 3. Show, confirm, hand off
+## Step 3. Save it all, then go straight on to the week
 
-Show a short summary, not the whole file: handle, tier, niche guess,
-cadence, best format and formula, worst habit, and the caveats. Then:
+Do not stop to confirm. Everything here is a local file the user can change
+with one sentence, so make the best call, save it, and say what you assumed.
+The user came for a plan, not a form.
 
-1. **Confirm the niche.** "From your posts this looks like X for Y. Right?"
-   Fix Claude's read with their answer.
-2. **Prefill the profile.** Run `scan.py prefill`. Show the suggested region,
-   niche, account type and language with the reason for each. Save only what
-   the user confirms: `python3 ~/.claude/skills/ig/state.py set ...`.
-3. **Voice.** `prefill` also prints the 3 most typical captions. Offer to
-   draft `voice.md` from them. Write it only after the user approves the
-   draft.
-4. **Ledger.** `scan.py to-ledger --dry-run`, say what it would add, then run
-   it. It matches by permalink, then date plus first line, never duplicates,
-   and never blanks a number already logged.
-5. **Next:** /ig-grow for this week's plan, or back to /ig.
+1. **Niche.** Write your read (Claude's read, in the user's niche words) and
+   use it. If the keyword guess and your read disagree, your read wins.
+2. **Profile.** Run `scan.py prefill`, fill any blank from your read (region
+   from language, places and script; account type from the source, else
+   `creator`), and save it: `python3 ~/.claude/skills/ig/state.py set ...`.
+3. **Voice.** Draft `voice.md` from the 3 typical captions and the rest of
+   the posts, and write it. Skip only if a filled `voice.md` already exists.
+4. **Ledger.** `scan.py to-ledger --dry-run`, then run it. It matches by
+   permalink, then date plus first line, never duplicates, and never blanks
+   a number already logged.
+5. **Baseline.** `grow.py checkin --followers N` with the scanned count, if
+   there is no check-in today.
+6. **The week.** Unless the user only asked for the scan, carry straight on:
+   `grow.py report` and `plan` for the bottleneck, then /ig-plan to write
+   `plan.md`. Do not ask "shall I plan your week?". Just plan it.
+
+Then reply with one message, in this order:
+
+- **This week** - the plan from /ig-plan, and the "What you need to do"
+  checklist. This is the headline.
+- **What I read** - 4 to 6 lines: tier, cadence, what works, worst habit,
+  any flag (like an "AI-generated" label), and how sure this is.
+- **What I assumed** - one line each for niche, region, language, account
+  type, voice. End with "Tell me if any of this is off and I'll redo it."
+
+Only ask a question when there is no reasonable guess at all (no handle,
+kweo logged out). Never ask more than one thing at a time.
 
 ## How other skills use this
 

@@ -286,21 +286,30 @@ def build_state(today=None, checks=True):
             blocking=True)
     missing = [f for f in REQUIRED_PROFILE if not prof.get(f)]
     if missing:
-        add("profile", "/ig", "Every skill needs to know where you post, about what, and your account type."
-            + (" Run `scan.py prefill` in /ig-scan for suggestions, then confirm." if scan else ""),
-            ask="Which country or region is your audience in, what is your niche in a few words, "
-                "and is your Instagram a creator or business account? (Optional: language, goal.)",
-            blocking=True)
+        if scan:
+            add("profile", "/ig", "Every skill needs to know where you post, about what, and your account type. "
+                "Fill it from `scan.py prefill` and Claude's read, save it, and say what was assumed.")
+        else:
+            add("profile", "/ig", "Every skill needs to know where you post, about what, and your account type.",
+                ask="Which country or region is your audience in, what is your niche in a few words, "
+                    "and is your Instagram a creator or business account? (Optional: language, goal.)",
+                blocking=True)
     if voice != "filled":
-        add("voice", "/ig-reel", "Scripts have to sound like you. voice.md is "
-            + ("missing." if voice == "missing" else "still the empty template."),
-            ask="Paste three of your own captions or reel transcripts (or answer the voice.md questions).",
-            blocking=True)
+        why = "Scripts have to sound like you. voice.md is " + (
+            "missing." if voice == "missing" else "still the empty template.")
+        if scan:
+            add("voice", "/ig-reel", why + " Draft it from the scanned captions and save it.")
+        else:
+            add("voice", "/ig-reel", why,
+                ask="Paste three of your own captions or reel transcripts (or answer the voice.md questions).",
+                blocking=True)
     if ck_date is None:
-        add("baseline", "/ig-grow", "Growth is measured from a starting point."
-            + (f" The scan read {scan['followers']:,} followers; confirm it is still right."
-               if scan and isinstance(scan.get("followers"), int) else ""),
-            ask="How many followers do you have right now?", blocking=True)
+        if scan and isinstance(scan.get("followers"), int):
+            add("baseline", "/ig-grow", "Growth is measured from a starting point. "
+                f"Check in the scanned {scan['followers']:,} followers.")
+        else:
+            add("baseline", "/ig-grow", "Growth is measured from a starting point.",
+                ask="How many followers do you have right now?", blocking=True)
     if led["posts"] == 0 and not missing and voice == "filled":
         add("profile_score", "/ig-profile", "Your profile converts viewers into followers. Fix it before pushing reach.",
             ask="Send a screenshot of the top of your profile and the first two grid rows.")
@@ -320,9 +329,8 @@ def build_state(today=None, checks=True):
         add("trends", "/ig-trends", "No trend board yet." if trends_age is None
             else f"Trend board is {trends_age} days old.")
     if plan_age is None or plan_age > PLAN_STALE_DAYS:
-        add("plan", "/ig-plan", "No plan for this week." if plan_age is None
-            else f"Plan is {plan_age} days old.",
-            ask="What actually happened this week? A client, a number, a mistake, something you built.")
+        add("plan", "/ig-plan", ("No plan for this week." if plan_age is None
+            else f"Plan is {plan_age} days old.") + " Build it from the account; use any moments the user mentioned.")
         add("calendar", "/ig-calendar", "Turn the plan into reminders (asks before adding anything).")
 
     # 3. today's work

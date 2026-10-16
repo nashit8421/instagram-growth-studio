@@ -102,6 +102,17 @@ class TestSetupOrder(StateTest):
         self.assertEqual(st["scan"]["niche_guess"], "freelancing and careers")
         self.assertEqual(st["scan"]["scanned"], TODAY.isoformat())
 
+    def test_with_scan_nothing_blocks_or_asks(self):
+        # After a scan, Claude fills profile, voice and baseline itself and
+        # goes straight on to the plan: no questions, nothing blocking.
+        self.scan()
+        st = state.build_state(TODAY, checks=False)
+        for s in st["next"]:
+            self.assertFalse(s["blocking"], s["key"])
+            if s["key"] in ("profile", "voice", "baseline", "plan"):
+                self.assertIsNone(s["ask"], s["key"])
+        self.assertIn("plan", [s["key"] for s in st["next"]])
+
     def test_setup_done_goes_to_run(self):
         self.setup_done()
         st = state.build_state(TODAY, checks=False)

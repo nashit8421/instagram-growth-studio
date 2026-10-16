@@ -8,7 +8,7 @@
     ["Find trends", "/ig-trends Find what's trending in my region and my niche this week, then update my trend board."],
     ["Pick a song", "/ig-audio Pick the sound for my next reel. It's about: "],
     ["Weekly growth review", "/ig-grow Run my weekly growth review."],
-    ["Plan my week", "/ig-plan Plan my week. What happened this week: "],
+    ["Plan my week", "/ig-plan Plan my week."],
     ["Fix my profile", "/ig-profile Score my profile and rewrite what loses points. (Attach a screenshot of the top of your profile.)"],
     ["Check a reel", "/ig-perf Check how my latest reel is doing. (Attach an insights screenshot if you have one.)"]
   ];

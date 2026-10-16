@@ -29,24 +29,27 @@ python3 state.py set --region IN --niche "freelance contracts" --account-type cr
    fits this account's niche, size and what already works for it. If there is more than one account (`/ig-account list`), confirm
    which one before doing anything.
 2. **Take the first step in `next`.** Invoke its skill and follow that
-   skill's instructions fully. When the step has an `ask`, ask exactly that,
-   batched into one message, and wait.
+   skill's instructions fully. When a step has an `ask`, first try to answer
+   it yourself (the scan, the profile, kweo). Ask the user only when there is
+   no reasonable guess, and then one short question.
 3. **After each step, run `state.py` again** and take the new first step.
    Steps disappear as their files appear, so the list is the progress bar.
 4. **Keep going** until only `engage` is left, or the user says stop. Then
    give a short wrap-up: what got done, what is waiting on the user (film,
    post, send numbers later), and when to run `/ig` again.
 
-Do not dump the whole list on the user. Show the next one or two steps, do
-them, move on.
+Do not dump the whole list on the user, and do not narrate each step or
+ask permission between them. Run setup, check-in and planning in one go and
+answer with the week: "Here's the plan for this week" and "What you need to
+do". Then one line of what you assumed, which the user can correct.
 
 ## The steps, and what each one does
 
 | key | skill | done when |
 |---|---|---|
 | scan | /ig-scan | `account.json` + `account.md` written from the real account (kweo by default). First on a new account; it prefills profile and voice. Comes back as non-blocking `rescan` after 30 days |
-| profile | this skill | `state.py set --region --niche --account-type` saved (confirm /ig-scan's `prefill` suggestions) |
-| voice | /ig-reel's voice step | `voice.md` written in the data folder from their own captions |
+| profile | this skill | `state.py set --region --niche --account-type` saved from /ig-scan's `prefill` and Claude's read, no confirm needed |
+| voice | /ig-reel's voice step | `voice.md` drafted from their own captions and saved, no confirm needed |
 | baseline | /ig-grow | `grow.py checkin --followers N` |
 | profile_score | /ig-profile | user has the rewrites (they edit Instagram themselves) |
 | perf | /ig-perf | `perf.py check` for every post listed |
@@ -72,6 +75,13 @@ Wait for the user at: approving copy, filming, posting, and any calendar
 change. Everything between those points runs without asking.
 
 ## Rules that do not bend
+
+- **Decide, don't ask.** Anything local and reversible (niche, region,
+  language, voice.md, the ledger, the check-in, the plan) Claude decides,
+  saves and states as an assumption. The user corrects it in one sentence.
+  Stop only for: things only the user can do (film, post, log in), anything
+  outward-facing (calendar, profile edits, messages), and approving copy
+  that will be posted.
 
 - **Nothing is posted, liked, followed, commented or sent by Claude.** Every
   skill ends in copy-ready text or files. The user posts.
