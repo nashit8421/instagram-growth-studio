@@ -538,7 +538,7 @@ class TestContext(Temp):
         text = out
         for needle in ("@contractcoach", "micro", "niche:", "(guess, not confirmed)", "audience language",
                        "cadence:", "best format: reel", "best hook formula", "best theme", "worst habit",
-                       "2026-10-15"):
+                       "scanned " + dt.date.today().isoformat()):
             self.assertIn(needle, text)
 
     def test_confirmed_niche_from_profile(self):
