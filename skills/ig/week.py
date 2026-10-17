@@ -26,7 +26,8 @@ FORMATS = ("reel", "carousel", "story", "photo")
 TYPES = ("proof", "teach", "opinion", "story", "offer", "trend")
 MAX_HASHTAGS = 5          # Instagram's cap; the pack aims for 3
 CAPTION_LIMIT = 2200
-ID_RE = re.compile(r"^(mon|tue|wed|thu|fri|sat|sun)(-[2-9])?$")
+ID_RE = re.compile(r"^(mon|tue|wed|thu|fri|sat|sun|now)(-[2-9])?$")
+NOW_DAYS = 6              # a `now` post (a moment that can't wait for Monday) is dated up to this many days before
 TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 MODELED = ("reel", "carousel")    # formats that must copy a viral reel
@@ -191,7 +192,8 @@ def check(week, today=None, viral=None):
         pid = p.get("id")
         where = f"post {pid}" if _s(pid) else where
         if not isinstance(pid, str) or not ID_RE.match(pid):
-            errors.append(f"{where}: id must be mon..sun, or mon-2 for a second post that day.")
+            errors.append(f"{where}: id must be mon..sun (mon-2 for a second post that day), "
+                          "or now for a moment that goes up before the week starts.")
         elif pid in seen:
             errors.append(f"{where}: duplicate id.")
         else:
@@ -199,13 +201,16 @@ def check(week, today=None, viral=None):
         day = str(p.get("day") or "").upper()
         if day not in DAYS:
             errors.append(f"{where}: day must be one of {', '.join(DAYS)}.")
-        elif isinstance(pid, str) and ID_RE.match(pid) and pid[:3].upper() != day:
+        is_now = isinstance(pid, str) and pid.startswith("now")
+        if not is_now and isinstance(pid, str) and ID_RE.match(pid) and pid[:3].upper() != day:
             errors.append(f"{where}: id and day disagree ({pid} vs {day}).")
         d = _date(p.get("date"))
         if d is None:
             errors.append(f"{where}: date must be YYYY-MM-DD.")
         elif monday is not None:
-            if not monday <= d <= monday + dt.timedelta(days=6):
+            if is_now and not monday - dt.timedelta(days=NOW_DAYS) <= d < monday:
+                errors.append(f"{where}: a now post is dated in the {NOW_DAYS} days before {monday}, not {d}.")
+            elif not is_now and not monday <= d <= monday + dt.timedelta(days=6):
                 errors.append(f"{where}: {d} is outside the week of {monday}.")
             elif day in DAYS and DAYS[d.weekday()] != day:
                 errors.append(f"{where}: {d} is a {DAYS[d.weekday()]}, not {day}.")
@@ -348,7 +353,19 @@ def plan_md(week):
         lines += [week["headline"], ""]
     by_day = {}
     for p in week.get("posts") or []:
+        if str(p.get("id") or "").startswith("now"):
+            continue
         by_day.setdefault(str(p.get("day")).upper(), []).append(p)
+    # Moments that can't wait. The line starts with NOW, not a day name, so
+    # /ig-calendar and state.py never read it as one of the week's slots.
+    for p in sorted((p for p in week.get("posts") or [] if str(p.get("id") or "").startswith("now")),
+                    key=lambda p: (p.get("date") or "", p.get("time") or "")):
+        d = _date(p.get("date"))
+        when = f"{DAYS[d.weekday()].title()} {d.strftime('%b')} {d.day}" if d else ""
+        lines.append(f"NOW  {when} {_ampm(p.get('time'))}  {str(p.get('format')).upper()}  "
+                     f"{str(p.get('type')).upper()} - {p.get('title')}  (a moment: post it before the week starts)")
+    if any(str(p.get("id") or "").startswith("now") for p in week.get("posts") or []):
+        lines.append("")
     for day in DAYS:
         posts = sorted(by_day.get(day, []), key=lambda p: p.get("time") or "")
         if not posts:

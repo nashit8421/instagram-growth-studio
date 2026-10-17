@@ -77,6 +77,7 @@ account supplies only the person, their situation and their facts.
 ```bash
 S=~/.claude/skills
 python3 $S/ig/week.py monday                  # the Monday to plan (Mon-Wed: this week, Thu-Sun: next)
+python3 $S/ig-trends/moments.py --region IN   # the moments: X trends 24h + news, 3 seconds
 python3 $S/ig/week.py schema                  # the exact shape, filled in
 python3 $S/ig-viral/swipe.py --reader $KIT/reader-*.json --out "$DATA/swipe.md"   # also writes $DATA/viral.json
 python3 $S/ig/week.py check "$DATA/week.json" --fix --json   # --fix copies each model's facts from viral.json
@@ -108,13 +109,24 @@ it again. Do not read the scripts' source; the lines above are all you need.
    accounts yourself, read each with an `ig-kweo-reader` "reels" job on
    `model: "haiku"`, one at a time, then `swipe.py --reader`. About 15
    minutes. Only numbers seen on a page go in.
-5. **Trends.** If `trends.md` is missing or over 7 days old, run /ig-trends
-   (web search when kweo is off). Keep it to the few searches that matter.
+5. **Moments and trends.** Always run `ig-trends/moments.py --region <R>`
+   first, even when `trends.md` is fresh: it takes 3 seconds and it is what
+   catches the week's big moment (a launch, a final, a meme). Do /ig-trends
+   Step 2 for the top MOMENTs (judge, check creators on Instagram, log the
+   bridge as a reel). If `trends.md` is missing or over 7 days old, do the
+   rest of /ig-trends too.
 6. **The slots.** Follow /ig-plan: 4 to 5 posts, at least 3 reels, the type
    mix, the audience's evening, dated trends on their dates. Each slot is one
    viral reel from `viral.json`: the biggest multiples first, never the same
    model twice in a week unless the list is short, and a format the user can
    actually film. A dated trend is shot in the shape of a viral reel too.
+   **The week's biggest moment gets a post** when it has an honest bridge to
+   the niche. If the week starts more than a day away, make it a `now`
+   post (id `now`, dated today or tomorrow, before `week_of`): a moment is
+   worth most in its first 3 days. Its model is the biggest reel already
+   riffing on it if one is in viral.json, else the viral reel whose shape
+   fits. If no moment fits, say so in `assumptions`, naming the top 3 you
+   passed on and why.
 7. **A kit per post.** For every slot write what the user needs to make it
    without asking anyone:
    - `model`: `ref` (its id in viral.json), `copy` (what is copied, one line

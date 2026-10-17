@@ -2945,6 +2945,8 @@ def autopilot_prompt(target, handle, note, scanned):
         "Every post copies a reel that went viral in this niche (its model in viral.json): its hook shape, "
         "structure, pace and tone. Not my own old posts, my old captions or voice.md's tone: those are what "
         "didn't go viral.",
+        "Run ig-trends/moments.py first: the biggest moment everyone is talking about right now gets a post "
+        "when it has an honest bridge to my niche, as a `now` post before Monday if it can't wait.",
     ]
     if vage is None or vage > VIRAL_STALE_DAYS:
         lines.append(("There is no viral.json yet" if vage is None else f"viral.json is {vage} days old")

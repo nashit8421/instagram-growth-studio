@@ -27,9 +27,10 @@ Said once, plainly: **nobody can guarantee a reel goes viral.** This finds
 what is moving and ranks bets. The user still has to make a good reel, and
 most good reels still do not blow up.
 
-One tool lives in this folder:
+Two tools live in this folder:
 
 ```bash
+python3 moments.py --region IN # what the internet is talking about right now (3 seconds)
 python3 trends.py add ...      # log a trend you saw
 python3 trends.py blend ...    # rank the bridges, write trends.md
 python3 trends.py list         # what is logged
@@ -66,9 +67,53 @@ Also pull **Proof I can use** from voice.md. `trends.py blend` reads it on its
 own. If it is empty, every idea comes back with `{{your number}}` in it, and
 that is correct.
 
-## Step 2: region-wide, what the whole country is on
+## Step 2: the moments, always first
 
-Spend about 15 minutes. For each item worth keeping, log it:
+The big moments of the week are what reels get made about: a launch the
+whole world is laughing at, a final, a meme. Google Trends' hourly feed misses
+them (it is search spikes of a few hundred searches), so start here:
+
+```bash
+python3 moments.py --region IN          # --json for the full list
+```
+
+It reads X trends for the last 24 hours (region and worldwide, from
+trends24.in) and Google News top stories (region and US), and ranks topics by
+how many hours they stayed on X. **MOMENT** means it is also in the
+headlines. On 17 Oct 2026 it put the Tesla "flying" Roadster second, 18 hours
+on X, the same day the hourly Google feed had no trace of it.
+
+For each MOMENT worth riding:
+
+1. **Judge it.** Deaths, attacks, disasters: never. Politics, religion,
+   court cases: only if the account already posts about them. A product
+   launch, a match, a film, a meme, a weird news story: yes.
+2. **Check creators are on it.** Through kweo, read
+   `https://www.instagram.com/explore/search/keyword/?q=<words>` (an
+   `ig-kweo-reader` "explore" job): are reels about it out, and how big?
+   Note the 2 or 3 biggest as niche formats (`--scope niche --kind format`)
+   with their links.
+3. **Log it** with the hours on X as the rank signal:
+
+```bash
+python3 trends.py add --source x --region IN --kind topic --name "Tesla flying Roadster" \
+  --rank 2 --first-seen 2026-10-15 --niche-match 3 \
+  --notes "18h on X (IN + world), Google News top story; creators riffing" \
+  --url "https://trends24.in/india/"
+```
+
+4. **Write the bridge as a reel, not a pairing.** Not "Tesla -> toddler
+   takes over". Say what is on screen: "His ride-on car does the Tesla
+   'flying' launch: the ramp, the slow-mo jump, Dad as Elon on the mic."
+   Use what the account really has (the scan, the kit notes); where a prop is
+   unknown, the shot says what to use instead.
+
+A moment's life is days. One with a real bridge goes in the next 1 to 3
+days, not next Thursday: /ig Autopilot gives it a `now` post.
+
+## Step 3: region-wide charts
+
+Spend about 10 minutes. For each item worth keeping, log it:
 
 ```bash
 python3 trends.py add --source google --region IN --kind topic \
@@ -87,7 +132,8 @@ Sources, verified 2026-10-15. Swap `IN` for the user's country.
 | --- | --- | --- | --- |
 | Google Trends, trending now, 24h | `https://trends.google.com/trending?geo=IN&hours=24` | no | browser. Shows volume, growth %, start time. |
 | Google Trends, past 7 days | `https://trends.google.com/trending?geo=IN&hours=168` | no | browser. Better for things still rising. |
-| Google Trends RSS | `https://trends.google.com/trending/rss?geo=IN` | no | WebFetch works. Titles and approx traffic only. |
+| Google Trends RSS | `https://trends.google.com/trending/rss?geo=IN` | no | WebFetch works. Titles and approx traffic only. Hourly search spikes, often a few hundred searches: never the only source, and no substitute for moments.py. |
+| X trends, 24h timeline | `https://trends24.in/india/` (`/united-states/`, or `/` for worldwide) | no | `moments.py` reads it. A topic on many hourly lists is big. |
 | Google Trends, related queries | `https://trends.google.com/explore?geo=IN&date=now%207-d&q=<niche term>` | no | browser. "Rising" queries for the niche. |
 | TikTok Creative Center, hashtags | `https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/en` | partial | browser. Set country and 7 days. Newer route: `https://ads.tiktok.com/creative/creativeCenter/trends/hashtag?countryCode=US&period=7` |
 | TikTok Creative Center, songs | `https://ads.tiktok.com/business/creativecenter/inspiration/popular/music/pc/en` | partial | browser. "Breakout" songs are the leading indicator for Reels audio. |
@@ -122,7 +168,7 @@ Instagram's own trending audio: inside the app, the audio page shows an arrow
 next to trending tracks. If the user reads it out, log it as `--kind song
 --source instagram`.
 
-## Step 3: the niche, what is working in it
+## Step 4: the niche, what is working in it
 
 Run the /ig-viral method for the niche. Accounts within about 10x of the
 user's size, outlier multiple over each account's own median, `swipe.py` to
@@ -151,7 +197,7 @@ For every region trend, also set `--niche-match 0-3` when you can judge it:
 
 Without it the script guesses from shared words and marks the guess with `?`.
 
-## Step 4: blend
+## Step 5: blend
 
 ```bash
 python3 trends.py blend --niche "freelance contracts" --region IN --top 10
@@ -188,7 +234,7 @@ the bridge is fake. Drop it, whatever the score.
 before using it. Never put a tragedy in a hook. Never make a joke out of
 someone getting hurt. If in doubt, leave it out and say why.
 
-## Step 5: hand off the top 3
+## Step 6: hand off the top 3
 
 For each of the top 3, give /ig-reel:
 
@@ -217,7 +263,8 @@ TOP 3 FOR /ig-reel
      #9 The Steal, ship by Sat. Sound: pick with /ig-audio.
   ...
 
-Sources read: Google Trends IN 24h and 7d, Google News IN, Reels tab (8 reels).
+Sources read: moments.py (X trends IN + world 24h, Google News IN + US),
+Google Trends IN 24h and 7d, Reels tab (8 reels).
 Not reached: TikTok Creative Center (not available in IN).
 This ranks bets. Nobody can promise a reel goes viral.
 ```

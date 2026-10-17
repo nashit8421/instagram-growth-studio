@@ -46,7 +46,7 @@
     { label: "Reading the account", match: /scan\.py|kweo|account\.md|state\.py/i },
     { label: "Finding the one thing holding growth back", match: /grow\.py/i },
     { label: "Finding reels going viral in your niche", match: /swipe\.py|\/ig-viral|captured\.tsv/i },
-    { label: "Checking what's trending this week", match: /trends\.py|Searching the web|ig-trends|Reading .*\.(com|in|org)/i },
+    { label: "Checking what everyone's talking about this week", match: /moments\.py|trends\.py|Searching the web|ig-trends|Reading .*\.(com|in|org)/i },
     { label: "Picking the posts and the days", match: /ig-plan|plan\.md|hooks\.json/i },
     { label: "Writing hooks and scripts in their shape", match: /hookscore\.py|beats\.py|ig-reel/i },
     { label: "Captions, sounds, and the director's notes", match: /caption\.py|humanize\.py|audio\.py|ig-caption|ig-audio|week\.json/i },
@@ -210,8 +210,18 @@
   function weekList(week, today) {
     var monday = IG.day(week.week_of);
     var byDay = {};
-    (week.posts || []).forEach(function (p) { (byDay[p.day] = byDay[p.day] || []).push(p); });
-    return h("section", { class: "days" }, DAYS.map(function (d, i) {
+    var now = [];
+    (week.posts || []).forEach(function (p) {
+      if (/^now/.test(p.id)) now.push(p);
+      else (byDay[p.day] = byDay[p.day] || []).push(p);
+    });
+    // A moment that can't wait for Monday: it goes up before the week starts.
+    var nowRow = now.length ? h("div", { class: "dayrow is-now" },
+      h("div", { class: "dlabel" }, h("span", { class: "dn", text: "NOW" }), h("span", { class: "dd", text: String(IG.day(now[0].date).getDate()) })),
+      h("div", { class: "dbody" },
+        h("p", { class: "small muted", text: "A moment everyone's talking about right now. Post it before the week starts: it's worth most in its first three days." }),
+        now.sort(function (a, b) { return (a.date + a.time) < (b.date + b.time) ? -1 : 1; }).map(function (p) { return postCard(week, p, today); }))) : null;
+    return h("section", { class: "days" }, nowRow, DAYS.map(function (d, i) {
       var date = new Date(monday.getTime() + i * 864e5);
       var iso = date.getFullYear() + "-" + ("0" + (date.getMonth() + 1)).slice(-2) + "-" + ("0" + date.getDate()).slice(-2);
       var posts = (byDay[d] || []).sort(function (a, b) { return a.time < b.time ? -1 : 1; });

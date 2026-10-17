@@ -209,6 +209,34 @@ class TestModel(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+class TestNowPost(unittest.TestCase):
+    def now_post(self, date="2026-10-17", day="SAT"):
+        w = example()
+        p = copy.deepcopy(w["posts"][0])
+        p.update({"id": "now", "day": day, "date": date, "type": "trend", "title": "His car flies too"})
+        w["posts"].insert(0, p)
+        return w
+
+    def test_now_post_before_the_week_is_valid(self):
+        self.assertEqual(week.check(self.now_post())[0], [])
+
+    def test_now_post_must_be_just_before_the_week(self):
+        errors, _ = week.check(self.now_post("2026-10-19", "MON"))
+        self.assertTrue(any("now post is dated" in e for e in errors), errors)
+        errors, _ = week.check(self.now_post("2026-10-10", "SAT"))
+        self.assertTrue(any("now post is dated" in e for e in errors), errors)
+        errors, _ = week.check(self.now_post("2026-10-17", "SUN"))
+        self.assertTrue(any("is a SAT, not SUN" in e for e in errors), errors)
+
+    def test_plan_md_puts_now_first_and_never_as_a_day_line(self):
+        text = week.plan_md(self.now_post())
+        lines = text.splitlines()
+        now_line = [l for l in lines if l.startswith("NOW")][0]
+        self.assertIn("Sat Oct 17 7:30pm", now_line)
+        self.assertLess(lines.index(now_line), [i for i, l in enumerate(lines) if l.startswith("MON")][0])
+        self.assertEqual(len([l for l in lines if l.startswith("SAT")]), 1)     # the week's own Saturday only
+
+
 class TestPlanMd(unittest.TestCase):
     def test_plan_lines_match_ig_plan_format(self):
         w = example()

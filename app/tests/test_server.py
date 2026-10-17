@@ -861,6 +861,7 @@ class WeekTests(Base):
         prompt = self.fake_calls()[-1]["prompt"]
         for bit in ("/ig Autopilot", "week of Monday " + self.target, "ask me nothing", "week.py check",
                     "plan-md", "@zara.abbasi22", "copies a reel that went viral", "Not my own old posts",
+                    "moments.py", "`now` post",
                     "There is no viral.json yet: do the ig-viral skill's Autopilot section first"):
             self.assertIn(bit, prompt)
         st, w, _, _ = self.req("GET", "/api/week")

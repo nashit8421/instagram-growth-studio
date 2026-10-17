@@ -39,7 +39,7 @@ import tempfile
 
 COLUMNS = ["id", "added", "scope", "source", "region", "kind", "name", "rank",
            "growth", "first_seen", "niche_match", "safety", "url", "notes"]
-SOURCES = ("google", "tiktok", "youtube", "instagram", "news")
+SOURCES = ("google", "tiktok", "youtube", "instagram", "news", "x")
 KINDS = ("topic", "hashtag", "song", "format", "meme")
 SCOPES = ("region", "niche")
 SAFETY = ("auto", "ok", "flag", "exclude")
