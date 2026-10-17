@@ -3,7 +3,8 @@
 
 Every call is appended to $FAKE_CLAUDE_LOG as one JSON line {args, prompt, cwd}.
 Prompt keywords: SLOW (sleeps, for cancel tests), MAKEFILE (writes a PNG in cwd),
-FAIL (exits with an error result), WRITEWEEK (writes week.json for the Monday in the prompt).
+FAIL (exits with an error result), WRITEWEEK (writes week.json for the Monday in the prompt),
+WRITEDAILY (adds the daily trend reel the prompt asks for), SKIPDAILY (replies "SKIP: ...").
 """
 import json
 import os
@@ -63,10 +64,25 @@ def main():
                 "caption": {"text": "Fake caption", "hashtags": ["#a"]}, "length_s": 20}
         with open(os.path.join(os.getcwd(), "week.json"), "w", encoding="utf-8") as f:
             json.dump({"version": 1, "week_of": monday, "headline": "Fake week", "posts": [post]}, f)
+    if "WRITEDAILY" in prompt:
+        import re
+        m = re.search(r'add ONE post to (\S+) with id "([^"]+)", day "(\w+)", date "([\d-]+)"', prompt)
+        path, pid, day, date = m.groups()
+        with open(path, encoding="utf-8") as f:
+            w = json.load(f)
+        w["posts"].append({"id": pid, "day": day, "date": date, "time": "19:30", "format": "reel", "type": "trend",
+                           "title": "Fake trend reel", "moment": {"name": "Fake moment", "hours_on_x": 18},
+                           "hook": {"spoken": "Trend hook"}, "script": [{"t": "0-2s", "say": "Trend hook"}],
+                           "direction": {"shots": [{"n": 1, "action": "jump"}]},
+                           "caption": {"text": "Trend caption", "hashtags": ["#a"]}})
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(w, f)
     mid2 = "msg_2"
     out({"type": "stream_event", "session_id": sid, "event": {"type": "message_start", "message": {"id": mid2}}})
     out({"type": "stream_event", "session_id": sid, "event": {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}})
     reply = ("Resumed. " if "--resume" in args else "") + "Hook A wins with 87." + made
+    if "SKIPDAILY" in prompt:
+        reply = "Nothing fits today.\nSKIP: the top moments were a court case and a cricket selection row."
     for i in range(0, len(reply), 7):
         out({"type": "stream_event", "session_id": sid, "event": {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": reply[i:i + 7]}}})
     out({"type": "assistant", "session_id": sid, "message": {"id": mid2, "content": [{"type": "text", "text": reply}]}})

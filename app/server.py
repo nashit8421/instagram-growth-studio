@@ -735,7 +735,8 @@ def system_context():
         "Week screen, drawn from week.json (see the ig skill's Autopilot section): when the user asks to change "
         "a planned post, edit that post in week.json and run week.py check --fix. Every planned post copies a "
         "reel that went viral in the niche (its `model`, an id in viral.json): write in that reel's shape and "
-        "tone, never in the style of the account's own old posts. There is also a Results "
+        "tone, never in the style of the account's own old posts. Every day the app also adds one trend reel "
+        "that rides what everyone is talking about (the ig skill's Daily section). There is also a Results "
         "screen (account scan, posts, growth, trends and what's going viral) and Settings."
     )
 
@@ -2916,6 +2917,7 @@ def api_week(h, body):
     return {"today": today.isoformat(), "this_monday": this_monday.isoformat(), "target": target.isoformat(),
             "weeks": have, "week": week, "needs_prepare": target.isoformat() not in weeks,
             "autopilot": autopilot_state(h.server), "claude": bool(find_claude()),
+            "daily": daily_state(h.server, daily_target()),
             "handle": active_handle(), "scanned": bool(acc),
             "name": (acc or {}).get("name") if isinstance(acc, dict) else None}
 
@@ -2998,6 +3000,8 @@ def api_week_prepare(h, body):
     st = autopilot_state(h.server)
     if st["running"]:
         return {"job": st["job"], "already": True}
+    if daily_state(h.server, daily_target()).get("running"):
+        raise ApiError(409, "Claude is writing today's trend reel. Prepare the week when it's done.")
     today = dt.date.today()
     target = plan_monday(today)
     if auto:
@@ -3101,6 +3105,180 @@ def api_week_redo(h, body):
         weeks_sync()
     start_thread(run_chat_job_logged, job, h.server, prompt, None, log_path, None, synced)
     return {"job": job.id}
+
+
+# ---------------------------------------------------------------- the daily trend reel
+#
+# Every day the app checks what everyone is talking about (ig-trends/moments.py)
+# and, when one moment has an honest bridge to the niche, Claude adds one reel
+# for that day to the week, with its full kit. After 6pm it is tomorrow's reel.
+# .studio/daily.json keeps one record per post date: done, skipped (with why),
+# running or error.
+
+DAILY_EVENING_HOUR = 18
+DAILY_RETRY_S = 6 * 3600
+DAY_IDS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+
+def daily_records():
+    d = read_json_file(studio_path("daily.json"))
+    return d if isinstance(d, dict) else {}
+
+
+def daily_put(date, **fields):
+    with _week_lock:
+        recs = daily_records()
+        rec = recs.get(date) if isinstance(recs.get(date), dict) else {}
+        rec.update(fields)
+        recs[date] = rec
+        for k in sorted(recs)[:-60]:          # keep two months
+            recs.pop(k, None)
+        write_json_atomic(studio_path("daily.json"), recs)
+        return rec
+
+
+def daily_target(now=None):
+    """Where today's trend reel goes: {date, week_of, path, latest, id}, or None when no planned week covers it."""
+    now = now or dt.datetime.now()
+    day = now.date() + dt.timedelta(days=1 if now.hour >= DAILY_EVENING_HOUR else 0)
+    weeks = weeks_sync()
+    latest = os.path.join(data_dir(), "week.json")
+    lw = read_json_file(latest)
+    lw = lw if _valid_week(lw) else {}
+    monday = (day - dt.timedelta(days=day.weekday())).isoformat()
+    if lw.get("week_of") == monday:
+        week_of, path = monday, latest
+    elif monday in weeks:
+        week_of, path = monday, weeks[monday]
+    elif lw and day < dt.date.fromisoformat(lw["week_of"]) <= day + dt.timedelta(days=6):
+        week_of, path = lw["week_of"], latest            # a `now` post before that week starts
+    else:
+        return None
+    w = read_json_file(path) or {}
+    taken = {p.get("id") for p in w.get("posts") or [] if isinstance(p, dict)}
+    base = "now" if day.isoformat() < week_of else DAY_IDS[day.weekday()]
+    pid = next((c for c in [base] + [f"{base}-{n}" for n in range(2, 10)] if c not in taken), None)
+    moment_post = next((p.get("id") for p in w.get("posts") or [] if isinstance(p, dict)
+                        and p.get("date") == day.isoformat() and isinstance(p.get("moment"), dict)), None)
+    return {"date": day.isoformat(), "week_of": week_of, "path": path, "latest": path == latest,
+            "id": pid, "has_moment_post": moment_post}
+
+
+def daily_state(srv, tgt):
+    if not tgt:
+        return {"available": False}
+    rec = daily_records().get(tgt["date"]) or {}
+    j = srv.jobs.get(rec.get("job")) if rec.get("job") else None
+    running = bool(j and not j.done)
+    status = "running" if running else rec.get("status")
+    if rec.get("status") == "running" and not running:
+        if j is not None:
+            status = j.status                  # just ended; run_daily writes the record a moment later
+        else:
+            status = "error"
+            rec["error"] = rec.get("error") or "IG Studio was restarted before today's reel was ready."
+    blocked = bool(status in ("error", "cancelled") and rec.get("auto")
+                   and time.time() - (rec.get("ended") or rec.get("started") or 0) < DAILY_RETRY_S)
+    return {"available": True, "date": tgt["date"], "week_of": rec.get("week_of") or tgt["week_of"],
+            "running": running, "job": rec.get("job") if running else None, "status": status,
+            "post_id": rec.get("post_id") or tgt["has_moment_post"], "moment": rec.get("moment"),
+            "reason": rec.get("reason"), "error": None if running else rec.get("error"),
+            "needs": not rec and not tgt["has_moment_post"] and bool(tgt["id"]), "auto_blocked": blocked}
+
+
+def daily_prompt(tgt, handle, note=""):
+    week_py = script_path("ig/week.py") or os.path.join(skills_dir(), "ig", "week.py")
+    moments = script_path("ig-trends/moments.py") or os.path.join(skills_dir(), "ig-trends", "moments.py")
+    prof = read_json_file(os.path.join(data_dir(), "profile.json")) or {}
+    region = str(prof.get("region") or "IN").upper()[:3] if isinstance(prof, dict) else "IN"
+    day = dt.date.fromisoformat(tgt["date"])
+    who = "@" + handle if handle else "this account"
+    return "\n".join([
+        f"/ig Daily. Today's trend reel for {who}, to post on {day.strftime('%A')} {tgt['date']}. Ask me nothing.",
+        f"Today is {dt.date.today().isoformat()}. Data folder: {data_dir()}",
+        "Follow the ig skill's \"Daily\" section.",
+        f"1. Run: python3 {moments} --region {region}",
+        "   Pick the one moment everyone is talking about that has an honest bridge to my niche "
+        "(never deaths, attacks or disasters).",
+        f"2. If one fits, add ONE post to {tgt['path']} with id \"{tgt['id']}\", day \"{day.strftime('%a').upper()}\", "
+        f"date \"{tgt['date']}\", type \"trend\", a `moment` object (name, hours_on_x, headline, and reel: a link "
+        "to a reel already riffing on it, if you saw one), and the full kit like an Autopilot post. Keep every "
+        "other post exactly as it is. Add a todo to film it.",
+        f"3. Run: python3 {week_py} check {tgt['path']} --fix --json   (until ok is true)"
+        + (f"\n   then: python3 {week_py} plan-md {tgt['path']}" if tgt["latest"] else ""),
+        "4. If nothing fits, change nothing and end with one line that starts with \"SKIP:\" and says why, "
+        "naming the top moments you passed on.",
+        "Otherwise end with one line: the reel, the moment it rides, and when to post it.",
+    ] + ([f"What I want today: {note}"] if note else []))
+
+
+def daily_after(tgt):
+    def after(job, run):
+        w = read_json_file(tgt["path"]) or {}
+        post = next((p for p in w.get("posts") or [] if isinstance(p, dict) and p.get("id") == tgt["id"]), None)
+        reply = str((run.final or {}).get("result") or "")
+        if post:
+            m = post.get("moment") if isinstance(post.get("moment"), dict) else {}
+            daily_put(tgt["date"], status="done", post_id=tgt["id"], moment=m.get("name"), ended=time.time())
+            weeks_sync()
+            return
+        skip = re.search(r"SKIP:\s*(.+)", reply)
+        if skip:
+            daily_put(tgt["date"], status="skipped", reason=skip.group(1).strip()[:400], ended=time.time())
+            return
+        raise ApiError(400, "Claude finished without adding today's reel. Open Ask Claude to see what happened.")
+    return after
+
+
+def run_daily(job, server, prompt, log_path, tgt):
+    try:
+        run_chat_job_logged(job, server, prompt, None, log_path, None, daily_after(tgt))
+    finally:
+        rec = daily_records().get(tgt["date"]) or {}
+        if rec.get("job") == job.id and rec.get("status") == "running":
+            err = next((e.get("error") for e in reversed(job.events) if e.get("type") == "end"), None)
+            try:
+                daily_put(tgt["date"], status=job.status if job.status in ("error", "cancelled") else "error",
+                          error=err or "Claude stopped.", ended=time.time())
+            except OSError:
+                pass
+
+
+@route("POST", "/api/daily")
+def api_daily(h, body):
+    auto = bool(body.get("auto"))
+    note = str(body.get("note") or "").strip()[:1000]
+    tgt = daily_target()
+    if not tgt:
+        raise ApiError(409, "Plan the week first: today's trend reel goes into it.")
+    st = daily_state(h.server, tgt)
+    if st["running"]:
+        return {"job": st["job"], "already": True}
+    if autopilot_state(h.server)["running"]:
+        raise ApiError(409, "Claude is preparing the week. Today's trend reel comes after.")
+    if tgt["has_moment_post"]:
+        daily_put(tgt["date"], status="done", post_id=tgt["has_moment_post"], week_of=tgt["week_of"],
+                  ended=time.time(), note="the week already rides a moment that day")
+        raise ApiError(409, "The week already has a trend reel for that day.")
+    if not tgt["id"]:
+        raise ApiError(409, "That day already has ten posts.")
+    if auto and (st["status"] in ("done", "skipped") or st["auto_blocked"]):
+        raise ApiError(409, "Today's trend reel is already " + ("done." if st["status"] != "error" else
+                                                              "being retried later."))
+    if not find_claude():
+        raise ApiError(503, "Claude Code is not installed.", {"install": "https://claude.com/claude-code"})
+    job = h.new_job("chat", "Today's trend reel")
+    log_path = chat_log_path()
+    try:
+        chat_log_put(log_path, {"job": job.id, "started": time.time(), "attachments": [], "status": "running",
+                                "prompt": "Today's trend reel" + (f": {note}" if note else "")
+                                + (" (automatic)" if auto else "")})
+        daily_put(tgt["date"], job=job.id, status="running", started=time.time(), auto=auto,
+                  week_of=tgt["week_of"], post_id=None, reason=None, error=None, ended=None)
+    except OSError:
+        pass
+    start_thread(run_daily, job, h.server, daily_prompt(tgt, active_handle(), note), log_path, tgt)
+    return {"job": job.id, "date": tgt["date"], "id": tgt["id"], "week_of": tgt["week_of"]}
 
 
 @route("GET", "/api/abtest")

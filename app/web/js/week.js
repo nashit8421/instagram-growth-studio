@@ -53,8 +53,16 @@
     { label: "Final check", match: /week\.py/i }
   ];
 
-  function prepCard(job, title, sub) {
-    var list = h("ol", { class: "phases" }, PREP_PHASES.map(function (p) { return h("li", null, h("span", { class: "b" }), h("span", { text: p.label })); }));
+  var DAILY_PHASES = [
+    { label: "Reading what everyone's talking about", match: /moments\.py/i },
+    { label: "Checking reels about it", match: /kweo|Searching the web|ig-kweo-reader/i },
+    { label: "Writing the reel", match: /hookscore\.py|beats\.py|caption\.py|humanize\.py|week\.json/i },
+    { label: "Final check", match: /week\.py/i }
+  ];
+
+  function prepCard(job, title, sub, phases, doneMsg) {
+    phases = phases || PREP_PHASES;
+    var list = h("ol", { class: "phases" }, phases.map(function (p) { return h("li", null, h("span", { class: "b" }), h("span", { text: p.label })); }));
     var now = h("div", { class: "now small muted", text: "Starting…" });
     var t0 = Date.now();
     var timer = h("span", { class: "num" });
@@ -69,12 +77,12 @@
         h("div", { class: "row" }, h("span", { class: "small faint" }, timer), stop)),
       list, now,
       h("p", { class: "small faint", text: "You can close this tab. It keeps going, and the week is here when you come back. Nothing is posted." }));
-    var run = IG.followRun(job, PREP_PHASES, function (st) {
+    var run = IG.followRun(job, phases, function (st) {
       list.querySelectorAll("li").forEach(function (li, i) { li.className = i < st.phase ? "done" : i === st.phase ? "cur" : ""; });
       now.textContent = st.now ? "Now: " + st.now : "";
     }, function (ev) {
       clearInterval(tick);
-      if (ev.status === "done") IG.toast("Your week is ready", "ok");
+      if (ev.status === "done") IG.toast(doneMsg || "Your week is ready", "ok");
       if (IG.current === "week") IG.render("week");
     });
     card._run = run;
@@ -200,11 +208,51 @@
         h("span", { class: "type", text: p.type }),
         p.trial ? h("span", { class: "badge info", text: "trial" }) : null),
       h("div", { class: "pc-title", text: p.title }),
+      p.moment && p.moment.name ? h("div", { class: "pc-model pc-moment" }, IG.icon("trends"),
+        h("span", { text: "Rides: " + p.moment.name + (p.moment.hours_on_x ? " · " + p.moment.hours_on_x + "h trending on X" : "") })) : null,
       p.model && p.model.ref ? h("div", { class: "pc-model" }, IG.icon("trends"),
         h("span", { text: "Copies " + (p.model.account || p.model.ref) + (p.model.multiple ? " · " + IG.n(p.model.multiple, 1) + "× their usual " + (p.model.metric || "views") : "") })) : null,
       hook.spoken || hook.on_screen ? h("div", { class: "pc-hook", text: IG.quote(hook.spoken || hook.on_screen) }) : null,
       h("div", { class: "pc-foot" }, stageDots(p),
         h("span", { class: "pc-next" + (stage === "posted" ? " ok" : ""), text: running ? "Director at work…" : next }, stage === "posted" ? null : IG.icon("arrow"))));
+  }
+
+  /* Today's trend reel: Claude reads the day's moments and adds one reel when one fits. */
+  function dailyCard(data, m) {
+    var d = data.daily || {};
+    if (!d.available) return null;
+    var when = d.date === data.today ? "today" : IG.day(d.date).toLocaleDateString(undefined, { weekday: "long" });
+    var head = h("p", { class: "eyebrow", text: "Trend reel for " + when });
+    if (d.running) return prepCard(d.job, "Today's trend reel", "Claude is reading what everyone's talking about and writing one reel that rides it.",
+      DAILY_PHASES, "Today's trend reel is ready");
+    if (d.status === "done" && d.post_id) {
+      var p = data.week && data.week.week_of === d.week_of ? (data.week.posts || []).filter(function (x) { return x.id === d.post_id; })[0] : null;
+      return h("a", { class: "card daily", href: IG.postLink(d.week_of, d.post_id) }, head,
+        h("h3", { text: d.moment ? "Riding: " + d.moment : "Today's trend reel" }),
+        p ? h("p", { class: "muted", text: p.title + " · " + IG.ampm(p.time) }) : null,
+        h("span", { class: "pc-next" }, "Open the kit", IG.icon("arrow")));
+    }
+    function again(label, cls) {
+      return IG.btn(label, { cls: cls || "sm", icon: "refresh", onClick: function () {
+        var note = IG.textarea("note", { rows: 2, placeholder: "Optional. e.g. the Tesla flying car" });
+        IG.dialog("Make a trend reel for " + when + "?", h("div", { class: "stack-sm" },
+          h("p", { class: "small", text: "Claude reads what everyone's talking about and writes one reel that rides it." }),
+          IG.field("A moment you have in mind", note)), [
+          { label: "Cancel" },
+          { label: "Make it", primary: true, onClick: function (close) {
+            return IG.post("/api/daily", { note: note.value }).then(function () { close(); IG.render("week"); });
+          } }]);
+      } });
+    }
+    if (d.status === "skipped") return h("div", { class: "card flat daily" }, head,
+      h("p", { class: "small muted", text: "Nothing worth riding: " + (d.reason || "no moment fits the niche.") }), again("Make one anyway", "ghost sm"));
+    if (d.status === "error" || d.status === "cancelled") return h("div", { class: "card flat daily" }, head,
+      h("p", { class: "small", text: d.status === "cancelled" ? "Stopped." : (d.error || "Claude stopped.") }), again("Try again"));
+    if (d.needs && !d.auto_blocked && data.claude && !data.autopilot.running) {
+      IG.post("/api/daily", { auto: true }).then(function () { if (IG.alive(m)) IG.render("week"); }).catch(function () { /* shown next visit */ });
+      return h("div", { class: "card flat daily" }, head, h("p", { class: "small muted", text: "Checking what everyone's talking about…" }));
+    }
+    return null;
   }
 
   function weekList(week, today) {
@@ -313,8 +361,16 @@
       IG.post("/api/week/prepare", { auto: true }).then(function () { if (IG.alive(m)) IG.render("week"); }).catch(function () { /* shown next visit */ });
     }
 
+    // A new day (or 6pm, when the trend reel becomes tomorrow's) brings a new trend reel.
+    var loaded = new Date();
+    var iv = setInterval(function () {
+      if (!IG.alive(m)) { clearInterval(iv); return; }
+      var t = new Date();
+      if (t.toDateString() !== loaded.toDateString() || (loaded.getHours() < 18 && t.getHours() >= 18)) IG.render("week");
+    }, 10 * 60 * 1000);
+
     view.appendChild(h("div", { class: "week-grid" },
-      h("div", { class: "stack" }, weekList(w, today)),
+      h("div", { class: "stack" }, dailyCard(data, m), weekList(w, today)),
       h("div", { class: "stack side-col" }, todayCard(w, today), engageCard(w),
         (w.assumptions || []).length ? h("details", { class: "card flat more" }, h("summary", { text: "What Claude assumed" }),
           h("ul", { class: "plain small", style: { marginTop: "10px" } }, w.assumptions.map(function (a) { return h("li", { text: a }); })),

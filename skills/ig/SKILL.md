@@ -182,6 +182,31 @@ End with three short lines: the headline, the first thing to do and when,
 and what you assumed. The user changes anything by telling Claude; a change
 to one post rewrites that post in `week.json` and runs `check` again.
 
+## Daily: today's trend reel (IG Studio)
+
+When the prompt says **Daily**, add one reel for one day that rides what
+everyone is talking about. Ask nothing. About 5 minutes. The prompt names
+the file, the post id and the date.
+
+1. `python3 ~/.claude/skills/ig-trends/moments.py --region <R>`. Read the
+   MOMENTs from the top. Skip deaths, attacks and disasters always, and
+   politics, religion and court cases unless the account already posts them.
+2. Pick the one with an honest bridge to the niche, using what the account
+   really has (account.md, the week's kits). Write the bridge as a reel, not a
+   pairing: what is on screen in the first second. If kweo is connected, one
+   `ig-kweo-reader` "explore" job on
+   `https://www.instagram.com/explore/search/keyword/?q=<words>` shows whether
+   creators are already riffing on it; note the biggest one's link.
+3. Write the post with the full kit, as in Autopilot step 7: hook, script,
+   direction, caption, sound, cover, and a `model` from viral.json (the
+   viral reel whose shape fits; if viral.json is missing, do /ig-viral's
+   Autopilot first). Add `moment`: `name`, `hours_on_x`, `headline`, and
+   `reel` (that link, if you saw one). Short: 10 to 25 seconds, one setup,
+   filmable today. Add a todo to film it.
+4. `week.py check --fix` until OK, and `plan-md` if it is the latest week.
+5. If nothing fits, change nothing and end with `SKIP:` and why, naming the
+   moments you passed on. A forced bridge is worse than no post.
+
 ## Today's post, end to end
 
 For a **reel**: pick a model from `viral.json` → /ig-reel in its shape (hooks scored, script, beat sheet, humanized) →

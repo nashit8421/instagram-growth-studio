@@ -27,6 +27,13 @@ copies. It writes every kit into `week.json`
 fails is not retried automatically for 6 hours; the page says why and offers a button.
 Each run costs Claude usage, roughly one long session per week per account.
 
+Every day, the first time the Week page opens (after 6pm it is for tomorrow),
+Claude also reads what everyone is talking about (`skills/ig-trends/moments.py`:
+X trends over 24 hours and Google News top stories) and, when one moment has an
+honest bridge to the niche, adds **today's trend reel** to the week with its full
+kit. When nothing fits it says why and adds nothing. About 5 minutes of Claude a
+day per account.
+
 ## Start it
 
 The launchers are in the repo's main folder, next to this `app/` folder.

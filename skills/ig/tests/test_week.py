@@ -217,6 +217,13 @@ class TestNowPost(unittest.TestCase):
         w["posts"].insert(0, p)
         return w
 
+    def test_moment_needs_a_name(self):
+        w = self.now_post()
+        w["posts"][0]["moment"] = {"name": "Tesla flying Roadster", "hours_on_x": 18}
+        self.assertEqual(week.check(w)[0], [])
+        w["posts"][0]["moment"] = "Tesla"
+        self.assertTrue(any("moment must be" in e for e in week.check(w)[0]))
+
     def test_now_post_before_the_week_is_valid(self):
         self.assertEqual(week.check(self.now_post())[0], [])
 

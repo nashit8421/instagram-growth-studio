@@ -24,6 +24,21 @@
       body);
   }
 
+  /* ---------- the moment this post rides */
+  function momentCard(p) {
+    var mo = p.moment;
+    if (!mo || !mo.name) return null;
+    return h("section", { class: "model moment" },
+      h("div", { class: "model-h" },
+        h("div", { class: "grow" },
+          h("p", { class: "eyebrow", text: "Rides what everyone's talking about" }),
+          h("div", { class: "model-who" }, h("b", { text: mo.name }),
+            mo.hours_on_x ? h("span", { class: "muted", text: mo.hours_on_x + " hours trending on X" }) : null)),
+        mo.reel ? h("a", { class: "btn sm", href: mo.reel, target: "_blank", rel: "noopener noreferrer" }, IG.icon("play"), h("span", { text: "A reel about it" })) : null),
+      mo.headline ? h("p", { class: "small muted", text: "In the news: " + mo.headline }) : null,
+      h("p", { class: "small", text: "Post it within a day or two. A moment is worth most in its first three days." }));
+  }
+
   /* ---------- the viral reel this post copies */
   function modelCard(p) {
     var m = p.model;
@@ -342,6 +357,8 @@
           h("div", { class: "row between" }, stepper(p), redoBtn(p, weekOf, reload, redoBox)),
           redoBox,
           p.trial ? IG.note("info", "Post this one as a Trial Reel (Instagram: Share → Trial). Non-followers see it first; it stays off your grid unless it does well.") : null));
+        var moment = momentCard(p);
+        if (moment) view.appendChild(moment);
         var model = modelCard(p);
         if (model) view.appendChild(model);
         view.appendChild(sayThis(p));

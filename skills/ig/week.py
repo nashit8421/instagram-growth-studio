@@ -242,6 +242,8 @@ def check(week, today=None, viral=None):
                 errors.append(f"{where}: every shot needs an action.")
             if not isinstance(dirn.get("setup"), dict):
                 warnings.append(f"{where}: direction.setup (location, light, framing) is missing.")
+        if "moment" in p and not (isinstance(p["moment"], dict) and _s(p["moment"].get("name"))):
+            errors.append(f"{where}: moment must be an object with a name (the moment this post rides).")
         if fmt in MODELED:
             model = p.get("model") if isinstance(p.get("model"), dict) else {}
             ref = model.get("ref")

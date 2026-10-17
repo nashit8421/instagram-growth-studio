@@ -790,7 +790,8 @@ class WeekTests(Base):
 
     def setUp(self):
         for p in (os.path.join(server.data_dir(), "week.json"), server.studio_path("autopilot.json"),
-                  server.studio_path("week-status.json"), os.path.join(server.data_dir(), "viral.json")):
+                  server.studio_path("week-status.json"), os.path.join(server.data_dir(), "viral.json"),
+                  server.studio_path("daily.json")):
             if os.path.exists(p):
                 os.remove(p)
         shutil.rmtree(server.studio_path("weeks"), ignore_errors=True)
@@ -936,6 +937,89 @@ class WeekTests(Base):
         prompt = server.autopilot_prompt(server.dt.date.fromisoformat(self.target), "zara.abbasi22", "", True)
         self.assertIn("copies a reel that went viral", prompt)
         self.assertNotIn("ig-viral skill's Autopilot section first", prompt)
+
+    def test_daily_needs_a_planned_week(self):
+        st, j, _, _ = self.req("GET", "/api/week")
+        self.assertFalse(j["daily"]["available"])
+        st, j, _, _ = self.req("POST", "/api/daily", {})
+        self.assertEqual(st, 409)
+        self.assertIn("Plan the week first", j["error"])
+
+    def test_daily_adds_todays_trend_reel_once(self):
+        self.write_week()
+        tgt = server.daily_target()
+        st, j, _, _ = self.req("GET", "/api/week")
+        self.assertTrue(j["daily"]["needs"], j["daily"])
+        st, j, _, _ = self.req("POST", "/api/daily", {"note": "WRITEDAILY"})
+        self.assertEqual(st, 200, j)
+        self.assertEqual((j["id"], j["date"]), (tgt["id"], tgt["date"]))
+        evs = self.events(j["job"])
+        self.assertEqual(evs[-1]["status"], "done", evs[-1])
+        prompt = self.fake_calls()[-1]["prompt"]
+        for bit in ("/ig Daily", "moments.py", f'id "{tgt["id"]}"', f'date "{tgt["date"]}"', "SKIP:", "week.py check"):
+            self.assertIn(bit, prompt)
+        w = server.read_json_file(tgt["path"])
+        self.assertIn(tgt["id"], [p["id"] for p in w["posts"]])
+        st, j, _, _ = self.req("GET", "/api/week")
+        d = j["daily"]
+        self.assertEqual((d["status"], d["post_id"], d["moment"]), ("done", tgt["id"], "Fake moment"))
+        self.assertFalse(d["needs"])
+        st, j, _, _ = self.req("POST", "/api/daily", {"auto": True})
+        self.assertEqual(st, 409)                                   # once a day
+
+    def test_daily_skip_is_recorded_with_why(self):
+        self.write_week()
+        st, j, _, _ = self.req("POST", "/api/daily", {"note": "SKIPDAILY"})
+        self.assertEqual(self.events(j["job"])[-1]["status"], "done")
+        st, j, _, _ = self.req("GET", "/api/week")
+        self.assertEqual(j["daily"]["status"], "skipped")
+        self.assertIn("court case", j["daily"]["reason"])
+
+    def test_daily_failure_is_not_retried_automatically(self):
+        self.write_week()
+        st, j, _, _ = self.req("POST", "/api/daily", {"note": "nothing written"})
+        evs = self.events(j["job"])
+        self.assertEqual(evs[-1]["status"], "error")
+        self.assertIn("without adding today's reel", evs[-1]["error"])
+        st, j, _, _ = self.req("POST", "/api/daily", {"note": "FAIL", "auto": True})
+        self.assertEqual(st, 200, j)
+        self.events(j["job"])
+        for _ in range(50):
+            st, w, _, _ = self.req("GET", "/api/week")
+            if w["daily"]["status"] != "running":
+                break
+            time.sleep(0.1)
+        self.assertTrue(w["daily"]["auto_blocked"], w["daily"])
+        st, j, _, _ = self.req("POST", "/api/daily", {"auto": True})
+        self.assertEqual(st, 409)
+
+    def test_daily_skips_claude_when_the_week_already_rides_a_moment(self):
+        self.write_week()
+        tgt = server.daily_target()
+        path = os.path.join(server.data_dir(), "week.json")
+        w = server.read_json_file(path)
+        w["posts"].append({"id": "x", "date": tgt["date"], "moment": {"name": "Tesla flying Roadster"}})
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(w, f)
+        n = len(self.fake_calls())
+        st, j, _, _ = self.req("POST", "/api/daily", {})
+        self.assertEqual(st, 409)
+        self.assertEqual(len(self.fake_calls()), n)                  # no Claude run
+        st, j, _, _ = self.req("GET", "/api/week")
+        self.assertEqual(j["daily"]["post_id"], "x")
+        self.assertFalse(j["daily"]["needs"])
+
+    def test_daily_target_ids(self):
+        self.write_week()                                           # week of the target Monday, one post "mon"
+        monday = server.dt.date.fromisoformat(self.target)
+        before = server.dt.datetime.combine(monday - server.dt.timedelta(days=2), server.dt.time(9))
+        t = server.daily_target(before)
+        self.assertEqual((t["id"], t["date"]), ("now", (monday - server.dt.timedelta(days=2)).isoformat()))
+        evening = server.dt.datetime.combine(monday - server.dt.timedelta(days=1), server.dt.time(19))
+        t = server.daily_target(evening)                            # after 6pm: tomorrow, Monday, "mon" is taken
+        self.assertEqual((t["id"], t["date"]), ("mon-2", self.target))
+        far = server.dt.datetime.combine(monday + server.dt.timedelta(days=30), server.dt.time(9))
+        self.assertIsNone(server.daily_target(far))
 
     def test_redo_one_post(self):
         self.write_week()

@@ -542,6 +542,12 @@ details.more[open] > summary::before { content: "▾ "; }
 .pc-title { font-size: 17px; font-weight: 700; letter-spacing: -.015em; }
 .pc-hook { color: var(--muted); font-size: 14.5px; }
 .dayrow.is-now .dn { color: var(--accent); }
+.pc-model.pc-moment { color: var(--accent); }
+.model.moment { border-left-color: var(--accent); }
+.card.daily { display: grid; gap: 6px; border-left: 4px solid var(--accent); text-decoration: none; color: var(--text); }
+.card.daily h3 { margin: 0; font-size: 18px; letter-spacing: -.015em; }
+.card.daily p { margin: 0; }
+a.card.daily:hover h3 { color: var(--accent); }
 .pc-model { display: flex; gap: 6px; align-items: center; font-size: 12.5px; font-weight: 650; color: var(--info); }
 .pc-model svg { width: 14px; height: 14px; flex: none; }
 .pc-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 4px; }
